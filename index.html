@@ -1,6 +1,76 @@
-<!DOCTYPE html>
-<html>
-	<body>
-		<h3>🕊️</h3>
-	</body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#02030a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Cosmos — Procedural Universe Explorer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2302030a'/%3E%3Ccircle cx='26' cy='28' r='14' fill='%236fd3ff'/%3E%3Ccircle cx='44' cy='40' r='6' fill='%23b79bff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{"imports":{"three":"./vendor/three.webgpu.js","three/webgpu":"./vendor/three.webgpu.js","three/tsl":"./vendor/three.tsl.js","three/addons/":"./vendor/addons/"}}</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+<div id="reticle" class="hidden"></div>
+
+<div id="hud">
+  <div id="loc" class="glass">
+    <div id="crumbs"></div>
+    <div id="locsub"><span id="speed">—</span><span id="scalebar"></span></div>
+  </div>
+  <div id="topbtns">
+    <button id="btn-menu" class="round glass" aria-label="Menu">☰</button>
+  </div>
+  <div id="chip" class="glass hidden">
+    <div id="chip-dot"></div>
+    <div id="chip-text"><b id="chip-name"></b><span id="chip-kind"></span></div>
+    <button id="chip-go" class="pill accent">Fly to</button>
+    <button id="chip-info" class="pill">Info</button>
+    <button id="chip-x" class="round small" aria-label="Clear">✕</button>
+  </div>
+  <div id="stick-wrap"><div id="stick"><div id="knob"></div></div><div id="stick-btns"><button id="b-up" class="round small glass">▲</button><button id="b-down" class="round small glass">▼</button></div></div>
+  <div id="actions">
+    <button id="a-fav" class="round glass" aria-label="Save favourite">☆</button>
+    <button id="a-tree" class="round glass" aria-label="System explorer">⌥</button>
+    <button id="a-info" class="round glass" aria-label="Info">ⓘ</button>
+    <button id="a-mode" class="round glass" aria-label="Free flight / orbit">⟳</button>
+    <button id="a-boost" class="round glass" aria-label="Boost">⚡</button>
+    <button id="a-level" class="round glass small" aria-label="Level horizon">⊖</button>
+  </div>
+  <div id="timebar" class="glass">
+    <button id="t-play" class="round small">❚❚</button>
+    <button id="t-rev" class="round small" aria-label="Reverse">⇄</button>
+    <input id="t-rate" type="range" min="-100" max="100" value="0" step="1">
+    <div id="t-read"><b id="t-rate-l">1×</b><span id="t-date"></span></div>
+    <button id="t-now" class="round small" aria-label="Real time">1×</button>
+  </div>
+  <div id="toast"></div>
+  <div id="fps" class="hidden"></div>
+</div>
+
+<aside id="info" class="sheet glass hidden">
+  <div class="sheet-grip"></div>
+  <header><div id="info-dot"></div><div><h2 id="info-title"></h2><div id="info-kind"></div></div><button id="info-x" class="round small">✕</button></header>
+  <div id="info-actions"><button id="i-go" class="pill accent">Fly to</button><button id="i-fav" class="pill">☆ Save</button><button id="i-tree" class="pill">Explorer</button><button id="i-copy" class="pill">Share</button></div>
+  <div id="info-body"></div>
+</aside>
+
+<aside id="tree" class="drawer glass hidden">
+  <header><h3 id="tree-title">Explorer</h3><button id="tree-x" class="round small">✕</button></header>
+  <div id="tree-tabs"><button data-t="system" class="on">System</button><button data-t="nearby">Nearby</button></div>
+  <div id="tree-body"></div>
+</aside>
+
+<aside id="menu" class="sheet glass hidden">
+  <div class="sheet-grip"></div>
+  <header><div class="tabs"><button data-tab="discover" class="on">Discover</button><button data-tab="favs">Favourites</button><button data-tab="settings">Settings</button><button data-tab="help">Help</button></div><button id="menu-x" class="round small">✕</button></header>
+  <div id="menu-body"></div>
+</aside>
+
+<div id="loading"><div class="ld-inner"><div class="ld-orb"></div><h1>COSMOS</h1><p id="ld-msg">Initialising WebGPU…</p></div></div>
+<div id="nogpu" class="hidden"><div class="ld-inner"><h1>WebGPU required</h1><p>This explorer uses WebGPU compute-class WGSL shaders. Please open it in a recent Chrome / Edge on Android, Safari 26+ on iOS, or a desktop Chromium browser with WebGPU enabled.</p><p id="nogpu-detail" class="dim"></p></div></div>
+<script type="module" src="js/main.js"></script>
+</body>
 </html>
