@@ -28,7 +28,7 @@ export class CosmosView {
     const fv = cameraViewMatrix.mul(vec4(fp, 1.0)); const fd = length(fv.xyz).max(1e-6);
     const fhalf = float(1.1).mul(fd).div(G.focal);
     m2.vertexNode = cameraProjectionMatrix.mul(vec4(fv.xy.add(positionGeometry.xy.mul(fhalf)), fv.z, 1.0));
-    const ff = smoothstep(CELL0 * 7 / KPC, CELL0 * 11 / KPC, fd).mul(smoothstep(CELL1 * 7 / KPC, CELL1 * 5.2 / KPC, fd));
+    const ff = smoothstep(CELL0 * 7 / KPC, CELL0 * 11 / KPC, fd).mul(float(1.0).sub(smoothstep(CELL1 * 5.2 / KPC, CELL1 * 7 / KPC, fd)));
     m2.fragmentNode = CLOUDFRAG({ q: varying(positionGeometry.xy, 'fq2'), c: varying(vec3(0.7, 0.8, 1.0).mul(fb).mul(ff).mul(this.U.farGain).mul(G.skyGain), 'fc') });
     transparentMat(m2, 'add', false); m2.side = THREE.DoubleSide; this.fMesh = new THREE.Mesh(f.geometry, m2); this.fMesh.frustumCulled = false; this.fMesh.renderOrder = 1; this.scene.add(this.fMesh);
     this.tier0 = new Streamer({ cell: CELL0, radius: 7, stride: 19, maxItems: 6000, budget: 70, hyst: 2, gen: (cx, cy, cz, out, origin, objs) => {

@@ -21,17 +21,17 @@ export class Engine {
     this.U = {
       right: uniform(new THREE.Vector3(1, 0, 0)), up: uniform(new THREE.Vector3(0, 1, 0)), fwd: uniform(new THREE.Vector3(0, 0, -1)), aspTan: uniform(new THREE.Vector2(1, 1)),
       bhDir: uniform(new THREE.Vector3(0, 0, -1)), D: uniform(1e6), axis: uniform(new THREE.Vector3(0, 1, 0)), disk: uniform(new THREE.Vector4(3, 100, 9000, 1)), extra: uniform(new THREE.Vector4(0, 0, 1, 0)),
-      exposure: uniform(1), bloomK: uniform(0.7), vig: uniform(0.3), sat: uniform(1.08), grain: uniform(0),
+      exposure: uniform(1), bloomK: uniform(0.6), vig: uniform(0.3), sat: uniform(1.08), grain: uniform(0),
     };
     const sceneTex = texture(this.rtScene.texture);
     this.lensMat = new THREE.NodeMaterial();
     const U = this.U;
-    this.lensMat.fragmentNode = BHLENS({ tex: sceneTex, smp: sampler(this.rtScene.texture), uv: uv(), right: U.right, upv: U.up, fwd: U.fwd, aspTan: U.aspTan, bhDir: U.bhDir, D: U.D, axis: U.axis, disk: U.disk, extra: U.extra });
+    this.lensMat.fragmentNode = BHLENS({ tex: sceneTex, smp: sampler(this.rtScene.texture), uv: uv(), right: U.right, upv: U.up, fwd: U.fwd, aspTan: U.aspTan, bhDir: U.bhDir, D: U.D, axis: U.axis, disk: U.disk, extra: U.extra, expo: U.exposure });
     this.lensQuad = new THREE.QuadMesh(this.lensMat);
     const lensTex = texture(this.rtLens.texture);
-    this.bloomNode = bloom(lensTex, 0.9, 0.55, 0.85);
+    this.bloomNode = bloom(lensTex, 0.85, 0.5, 1.05);
     this.post = new THREE.RenderPipeline(r);
-    this.post.outputNode = COMPOSITE({ scene: lensTex, bloomC: this.bloomNode, uv: uv(), exposure: U.exposure, bloomK: U.bloomK, vig: U.vig, sat: U.sat, grainT: U.grain });
+    this.post.outputNode = COMPOSITE({ scene: lensTex, bloomC: this.bloomNode, uv: uv(), exposure: float(1.0), bloomK: U.bloomK, vig: U.vig, sat: U.sat, grainT: U.grain });
     this.lensActive = false;
   }
   setSize(w, h, dpr) {

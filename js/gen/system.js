@@ -50,7 +50,7 @@ export function starSpec(seed, opt) {
   s.name = kind === 'bd' ? 'Brown dwarf' : { ms: 'Main-sequence star', subgiant: 'Subgiant', giant: 'Red giant', rsg: 'Red supergiant', bsg: 'Blue supergiant', wr: 'Wolf–Rayet star', wd: 'White dwarf', ns: 'Neutron star', pulsar: 'Pulsar', magnetar: 'Magnetar', bh: 'Stellar black hole' }[kind];
   // apparent glow luminosity for the star field (relative to Sun) — compact objects get an artificial minimum so they're findable
   s.vis = kind === 'bh' ? 4 : kind === 'ns' || kind === 'magnetar' ? 6 : kind === 'pulsar' ? 14 : Math.max(s.L, 1e-4);
-  s.radiance = clamp(Math.pow(Math.max(s.T, 800) / C.TSUN, 2.4) * 7, 0.5, 70);
+  s.radiance = clamp(Math.pow(Math.max(s.T, 800) / C.TSUN, 2.0) * 0.95, 0.3, 4);
   s.age = r.range(0.05, 12); return s;
 }
 
@@ -110,7 +110,7 @@ function rockyVisual(p, r, Teq, starCol) {
     case 'lava': {
       T.contAmp = relief * 0.3; T.mountAmp = relief * 0.5; T.contFreq = 1.8; T.mountFreq = 6; T.rough = relief * 0.03; T.mountMask = 0.0; T.craterDensity = r.range(0, 0.2); T.craterAmp = 1500;
       v.pal = { low: [0.015, 0.012, 0.012], mid: [0.05, 0.04, 0.035], dry: [0.1, 0.07, 0.05], high: [0.14, 0.11, 0.09], snow: [0.3, 0.25, 0.2], sand: [0.2, 0.1, 0.05] };
-      v.lava = r.range(0.5, 1); v.lavaCol = [1.0, 0.25 + 0.2 * r(), 0.03]; v.atm = { ...ATM.sulfur, ray: [12e-6, 8e-6, 4e-6] }; v.clouds = { cover: 0.85, color: [0.22, 0.12, 0.08], alt: 12000, speed: 1.5 }; break;
+      v.lava = r.range(0.5, 1); v.lavaCol = [1.0, 0.25 + 0.2 * r(), 0.03]; v.atm = { ...ATM.sulfur, ray: [10e-6, 7e-6, 3e-6], mie: 7e-6 }; v.clouds = { cover: 0.85, color: [0.22, 0.12, 0.08], alt: 12000, speed: 1.5 }; break;
     }
     case 'volcanic': {
       T.contAmp = relief * 0.18; T.mountAmp = relief * 0.35; T.contFreq = 2.2; T.mountFreq = 5; T.rough = relief * 0.015; T.craterDensity = 0.03; T.craterAmp = 800;
@@ -167,7 +167,7 @@ function makeGas(r, o) {
   const bandN = r.int(8, 22), hue = r();
   const pals = {
     jovian: [[0.88, 0.8, 0.68], [0.7, 0.45, 0.28], [0.95, 0.9, 0.82], [0.55, 0.32, 0.2], [0.8, 0.62, 0.45]],
-    saturnian: [[0.9, 0.82, 0.58], [0.82, 0.7, 0.45], [0.94, 0.88, 0.7], [0.7, 0.58, 0.4], [0.85, 0.75, 0.55]],
+    saturnian: [[0.92, 0.82, 0.55], [0.78, 0.6, 0.34], [0.96, 0.9, 0.72], [0.62, 0.45, 0.28], [0.85, 0.7, 0.45]],
     neptunian: [[0.18, 0.35, 0.82], [0.25, 0.5, 0.9], [0.12, 0.25, 0.7], [0.4, 0.62, 0.95], [0.2, 0.42, 0.85]],
     subnep: [[0.45, 0.7, 0.8], [0.55, 0.78, 0.85], [0.4, 0.62, 0.75], [0.62, 0.82, 0.88], [0.5, 0.72, 0.8]],
     hotjup: [[0.08, 0.06, 0.05], [0.18, 0.1, 0.08], [0.3, 0.12, 0.06], [0.12, 0.08, 0.1], [0.22, 0.14, 0.1]],
@@ -179,6 +179,7 @@ function makeGas(r, o) {
   else if (p.biome === 'hotjup' && alt < 0.5) pal = [[0.8, 0.35, 0.1], [0.9, 0.5, 0.2], [0.6, 0.2, 0.08], [0.95, 0.65, 0.3], [0.7, 0.3, 0.12]];
   p.visual = { type: p.biome, pal, bands: bandN, contrast: p.biome === 'neptunian' || p.biome === 'subnep' ? r.range(0.2, 0.45) : r.range(0.6, 1.2), turb: r.range(0.5, 1.4), storm: r() < 0.7 ? { lat: r.range(-0.5, 0.5), size: r.range(0.03, 0.12), col: r() < 0.6 ? [0.75, 0.3, 0.18] : [0.95, 0.92, 0.88], lon: r() * TAU } : null, hot: hot ? clamp((o.Teq - 800) / 1200, 0.2, 1) : 0, haze: r.range(0.2, 0.7), vortices: r.int(0, 6), seed: o.seed % 9973 };
   const gp = { ray: p.biome === 'neptunian' || p.biome === 'subnep' ? [3e-6, 10e-6, 30e-6] : [8e-6, 12e-6, 20e-6], mie: 12e-6, g: 0.5, absorb: p.biome === 'neptunian' ? [3e-6, 0.5e-6, 0.0] : [0, 0, 0], Hr: o.radius * 0.0045, Hm: o.radius * 0.002 };
+  const kScale = Math.min(1, 8000 / gp.Hr) * 2.6; gp.ray = gp.ray.map((x) => x * kScale); gp.mie *= kScale; gp.absorb = gp.absorb.map((x) => x * kScale);
   gp.height = gp.Hr * 7; p.visual.atm = gp;
   p.pressure = 1e5; p.atmName = p.biome === 'neptunian' ? 'Hydrogen–helium–methane' : p.biome === 'hotjup' ? 'Hydrogen–helium, vaporised metals' : 'Hydrogen–helium, ammonia clouds';
   p.biomeName = { jovian: 'Gas giant', saturnian: 'Gas giant (ringed type)', neptunian: 'Ice giant', subnep: 'Sub-Neptune', hotjup: 'Hot Jupiter' }[p.biome];
@@ -206,12 +207,12 @@ export function generateSystem(galaxyId, starRef, galaxyPos) {
   const compactA = a.compact;
   if (a.kind === 'bh' || a.kind === 'ns' || a.kind === 'pulsar' || a.kind === 'magnetar') {
     if (rng() < 0.55) { // companion star
-      const comp = starSpec(seedOf(seed, 'comp'), { force: rng() < 0.7 ? 'ms' : rng() < 0.5 ? 'giant' : 'subgiant' }); if (comp.kind === 'ms') { comp.M = Math.max(comp.M, 0.6); comp.R = Math.pow(comp.M, comp.M < 1 ? 0.8 : 0.57); comp.L = Math.pow(comp.M, 4); comp.T = C.TSUN * Math.pow(comp.L / (comp.R ** 2), 0.25); comp.color = blackbody(comp.T); comp.spectral = spectralClass(comp.T) + 'V'; comp.radiance = clamp(Math.pow(comp.T / C.TSUN, 2.4) * 7, 0.5, 70); comp.vis = Math.max(comp.L, 1e-3); }
+      const comp = starSpec(seedOf(seed, 'comp'), { force: rng() < 0.7 ? 'ms' : rng() < 0.5 ? 'giant' : 'subgiant' }); if (comp.kind === 'ms') { comp.M = Math.max(comp.M, 0.6); comp.R = Math.pow(comp.M, comp.M < 1 ? 0.8 : 0.57); comp.L = Math.pow(comp.M, 4); comp.T = C.TSUN * Math.pow(comp.L / (comp.R ** 2), 0.25); comp.color = blackbody(comp.T); comp.spectral = spectralClass(comp.T) + 'V'; comp.radiance = clamp(Math.pow(comp.T / C.TSUN, 2.0) * 0.95, 0.3, 4); comp.vis = Math.max(comp.L, 1e-3); }
       specs.push(comp); layout = rng() < 0.7 ? 'accreting' : 'compactbin'; sep = layout === 'accreting' ? rng.logu(0.025, 0.12) * AU : rng.logu(0.5, 8) * AU; eBin = layout === 'accreting' ? rng.range(0, 0.08) : rng.range(0, 0.5);
     }
   } else if (rng() < 0.42 && a.kind !== 'bd') {
     const q = rng.range(0.15, 1); const comp = starSpec(seedOf(seed, 'comp'), { force: rng() < 0.9 ? 'ms' : rng() < 0.6 ? 'wd' : 'giant' });
-    if (comp.kind === 'ms') { const M = Math.min(a.M, 3) * q + 0.08; comp.M = M; comp.R = Math.pow(M, M < 1 ? 0.8 : 0.57); comp.L = M < 0.43 ? 0.23 * Math.pow(M, 2.3) : Math.pow(M, M < 2 ? 4 : 3.5); comp.T = C.TSUN * Math.pow(comp.L / (comp.R ** 2), 0.25); comp.color = blackbody(comp.T); comp.spectral = spectralClass(comp.T) + 'V'; comp.radiance = clamp(Math.pow(comp.T / C.TSUN, 2.4) * 7, 0.5, 70); comp.vis = Math.max(comp.L, 1e-4); comp.Rm = comp.R * C.RSUN; }
+    if (comp.kind === 'ms') { const M = Math.min(a.M, 3) * q + 0.08; comp.M = M; comp.R = Math.pow(M, M < 1 ? 0.8 : 0.57); comp.L = M < 0.43 ? 0.23 * Math.pow(M, 2.3) : Math.pow(M, M < 2 ? 4 : 3.5); comp.T = C.TSUN * Math.pow(comp.L / (comp.R ** 2), 0.25); comp.color = blackbody(comp.T); comp.spectral = spectralClass(comp.T) + 'V'; comp.radiance = clamp(Math.pow(comp.T / C.TSUN, 2.0) * 0.95, 0.3, 4); comp.vis = Math.max(comp.L, 1e-4); comp.Rm = comp.R * C.RSUN; }
     specs.push(comp); const rr = rng(); layout = 'binary';
     sep = rr < 0.35 ? rng.logu(0.03, 0.5) * AU : rr < 0.75 ? rng.logu(1, 40) * AU : rng.logu(80, 2500) * AU; eBin = rng.range(0, rr < 0.35 ? 0.15 : 0.7);
     if (rng() < 0.04 && specs.length === 2) { // triple: inner binary + distant third

@@ -13,11 +13,11 @@ export class Input {
   down(e) {
     if (e.target !== this.canvas) return; this.canvas.setPointerCapture && this.canvas.setPointerCapture(e.pointerId);
     this.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), btn: e.button, moved: 0 });
-    if (this.ptrs.size === 2) this.lastPinch = this.pinchState(); this.hooks.userInput && this.hooks.userInput('down');
+    if (this.ptrs.size === 2) { this.lastPinch = this.pinchState(); this.hooks.userInput && this.hooks.userInput('pinch'); }
   }
   pinchState() { const p = [...this.ptrs.values()]; const dx = p[1].x - p[0].x, dy = p[1].y - p[0].y; return { d: Math.hypot(dx, dy) || 1, a: Math.atan2(dy, dx) }; }
   move(e) {
-    const p = this.ptrs.get(e.pointerId); if (!p) return; const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; p.moved += Math.abs(dx) + Math.abs(dy);
+    const p = this.ptrs.get(e.pointerId); if (!p) return; const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; p.moved += Math.abs(dx) + Math.abs(dy); if (p.moved > 14 && !p.took) { p.took = true; this.hooks.userInput && this.hooks.userInput('drag'); }
     if (this.ptrs.size === 1) {
       const s = this.fovRad / this.canvas.clientHeight * this.sens * (this.mode === 'orbit' ? 1.6 : 1); const r = p.btn === 2 ? 1 : 0;
       if (p.btn === 2) this.acc.roll += dx * 0.004; else { this.acc.lookdx += dx * s; this.acc.lookdy += dy * s * (this.invertY ? -1 : 1); }

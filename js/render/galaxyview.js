@@ -44,7 +44,7 @@ export class GalaxyView {
     const vp = cameraViewMatrix.mul(modelWorldMatrix.mul(vec4(ipos, 1.0))); const dist = length(vp.xyz).max(1e-9);
     const dAU = dist.mul(206264.8); const flux = ilum.div(dAU.mul(dAU)); const s = flux.div(2.36e-13);
     const rad = float(1.2).add(log(s.add(1.0)).mul(0.62)).min(11.0); // px radius core
-    const vis = smoothstep(0.03, 0.25, s).mul(smoothstep(0.0004, 0.002, dist)).mul(smoothstep(STAR_CELL * 2.2, STAR_CELL * 1.5, dist));
+    const vis = smoothstep(0.03, 0.25, s).mul(smoothstep(0.0004, 0.002, dist)).mul(float(1.0).sub(smoothstep(STAR_CELL * 1.5, STAR_CELL * 2.2, dist)));
     const half = rad.mul(3.0).mul(vis.greaterThan(0.001).select(1.0, 0.0)).mul(dist).div(G.focal);
     m.vertexNode = cameraProjectionMatrix.mul(vec4(vp.xy.add(positionGeometry.xy.mul(half)), vp.z, 1.0));
     const I = s.pow(0.5).mul(0.42).min(7.0).mul(vis).mul(G.skyGain).mul(this.U.gain);
@@ -90,7 +90,7 @@ export class GalaxyView {
   setGalaxy(g) {
     if (this.g === g) return; this.g = g; this.stars.reset(); this.starQ.setCount(0);
     const c = buildCloud(g, this.cloudN); this.cloudData = c;
-    const a = this.cloud.arrays; for (let i = 0; i < c.n; i++) { const o = i * 8; a.ipos.set([c.pts[o], c.pts[o + 1], c.pts[o + 2]], i * 3); a.icol.set([c.pts[o + 3], c.pts[o + 4], c.pts[o + 5]], i * 3); a.isz[i] = c.pts[o + 6]; a.ibr[i] = c.pts[o + 7] * 0.22; }
+    const a = this.cloud.arrays, pt = c.pts; for (let i = 0; i < c.n; i++) { const o = i * 8, k = i * 3; a.ipos[k] = pt[o]; a.ipos[k + 1] = pt[o + 1]; a.ipos[k + 2] = pt[o + 2]; a.icol[k] = pt[o + 3]; a.icol[k + 1] = pt[o + 4]; a.icol[k + 2] = pt[o + 5]; a.isz[i] = pt[o + 6]; a.ibr[i] = pt[o + 7] * 0.22; }
     this.cloud.setCount(c.n); this.cloud.touch();
     const d = this.dust.arrays; for (let i = 0; i < c.dn; i++) { const o = i * 5; d.ipos.set([c.dust[o], c.dust[o + 1], c.dust[o + 2]], i * 3); d.isz[i] = c.dust[o + 3]; d.iop[i] = c.dust[o + 4]; }
     this.dust.setCount(c.dn); this.dust.touch();

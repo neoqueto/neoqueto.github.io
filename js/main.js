@@ -36,7 +36,7 @@ async function boot() {
   // ---- helpers ----------------------------------------------------------------------------------------
   const focalCss = () => 0.5 * window.innerHeight / Math.tan(engine.camera.fov * Math.PI / 360);
   app.applySettings = (reload) => {
-    engine.setFov(S.fov); app.input.fovRad = S.fov * Math.PI / 180; app.input.sens = S.sens; app.input.invertY = S.invertY; engine.U.bloomK.value = S.bloom ? 0.7 : 0; sysView.showOrbits = S.orbits;
+    engine.setFov(S.fov); app.input.fovRad = S.fov * Math.PI / 180; app.input.sens = S.sens; app.input.invertY = S.invertY; engine.U.bloomK.value = S.bloom ? 0.6 : 0; sysView.showOrbits = S.orbits;
     for (const o of sysView.orbits.values()) o.mesh.visible = S.orbits; $('labels').style.display = S.labels ? '' : 'none'; $('fps').classList.toggle('hidden', !S.showFps);
     engine.U.grain.value = 0; if (reload) { store.saveSession({ snap: world.snapshot() }); location.reload(); }
   };
@@ -206,6 +206,7 @@ async function boot() {
     let E = 0, nearM = 1e30;
     if (ctx.sysActive) {
       if (sysView.sys !== se.sys) sysView.setSystem(se.sys);
+      { const nb0 = sysView.nearestBody; if (nb0 && nb0.kind !== 'belt') { world.collideWith(nb0, ctx.camS); ctx.camS = world.camIn(se); } }
       sysView.update({ t, cam: ctx.camS, focal: focalPx, screenMin: Math.min(W, H), selected: ui.sel && ui.sel.kind !== 'system' ? ui.sel : null });
       E = sysView.E || 0; nearM = sysView.nearest; const nb = sysView.nearestBody;
       // altitude over terrain & collisions

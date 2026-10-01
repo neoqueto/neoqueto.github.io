@@ -5,10 +5,10 @@ import { LIB } from './lib.js';
 export const BHLENS = wgslFn(`
 fn bhLens(tex: texture_2d<f32>, smp: sampler, uv: vec2<f32>,
   right: vec3<f32>, upv: vec3<f32>, fwd: vec3<f32>, aspTan: vec2<f32>,
-  bhDir: vec3<f32>, D: f32, axis: vec3<f32>, disk: vec4<f32>, extra: vec4<f32>) -> vec4<f32> {
+  bhDir: vec3<f32>, D: f32, axis: vec3<f32>, disk: vec4<f32>, extra: vec4<f32>, expo: f32) -> vec4<f32> {
   // disk = (rin, rout, temperature K, intensity) ; extra = (time, active, spinFactor, faint)
   let base = textureSample(tex, smp, uv);
-  if (extra.y < 0.5) { return base; }
+  if (extra.y < 0.5) { return vec4<f32>(base.rgb * expo, 1.0); }
   let ndc = uv * 2.0 - vec2<f32>(1.0);
   let ray = normalize(right * (ndc.x * aspTan.x) + upv * (ndc.y * aspTan.y) + fwd);
   let e1 = -bhDir;
@@ -46,18 +46,18 @@ fn bhLens(tex: texture_2d<f32>, smp: sampler, uv: vec2<f32>,
           let beta = sqrt(0.5 / max(rc - 1.0, 0.2));
           let nph = -kb;                           // photon travel direction (towards the observer)
           let gam = 1.0 / sqrt(max(1.0 - beta * beta, 0.05));
-          let gD = 1.0 / (gam * (1.0 - beta * dot(tang, nph) * extra.z));
+          let gD = 1.0 / (gam * (1.0 - beta * dot(tang, nph) * (0.6 + 0.4 * extra.z)));
           let gR = sqrt(max(1.0 - 1.0 / rc, 0.02));
           let g = gD * gR;
-          let Tem = disk.z * pow(rin / rc, 0.75) * (1.0 - sqrt(rin / rc) * 0.6);
+          let Tem = disk.z * pow(rin / rc, 0.75) * (1.0 - sqrt(rin / rc) * 0.35);
           let ang = atan2(dot(pc, cross(axis, vec3<f32>(0.3, 0.9, 0.2))), dot(pc, normalize(cross(cross(axis, vec3<f32>(0.3, 0.9, 0.2)), axis))));
           let om = 0.9 / (rc * sqrt(rc));
           let tur = fbm(vec3<f32>(log(rc) * 6.0, (ang - om * extra.x * 6.0) * 2.0 , 3.7), 4) * 0.5 + 0.5;
           let tur2 = fbm(vec3<f32>(log(rc) * 20.0, (ang - om * extra.x * 6.0) * 7.0, 8.1), 3) * 0.5 + 0.5;
           let streak = 0.45 + 0.9 * tur * (0.6 + 0.8 * tur2);
-          let I = pow(Tem / disk.z, 4.0) * pow(g, 3.4) * streak * disk.w;
+          let I = pow(Tem / disk.z, 3.0) * pow(g, 3.6) * streak * disk.w * 2.6;
           let colr = blackbody(Tem * g * 0.82 + 600.0) ;
-          let alpha = clamp(0.92 * smoothstep(rout, rout * 0.55, rc) * smoothstep(rin, rin * 1.08, rc), 0.0, 0.95);
+          let alpha = clamp(0.92 * sstep(rout, rout * 0.55, rc) * sstep(rin, rin * 1.08, rc), 0.0, 0.95);
           diskCol += colr * I * alpha * trans;
           trans *= (1.0 - alpha * 0.85);
         }
@@ -84,11 +84,11 @@ fn bhLens(tex: texture_2d<f32>, smp: sampler, uv: vec2<f32>,
     }
   }
   var out = bg * trans + diskCol;
-  out += vec3<f32>(1.0, 0.8, 0.55) * glow * disk.w * 0.35 * smoothstep(0.0, 1.0, extra.y) * step(0.5, disk.w);
+  out += vec3<f32>(1.0, 0.8, 0.55) * glow * disk.w * 0.06 * sstep(0.0, 1.0, extra.y) * step(0.5, disk.w);
   // blend smoothly into the plain image far from the hole
-  let mixk = smoothstep(bMax * 1.0, bMax * 0.8, b);
+  let mixk = sstep(bMax * 1.0, bMax * 0.8, b);
   let inner = mix(base.rgb, out, select(1.0, mixk, b >= bMax * 0.8));
-  return vec4<f32>(inner, 1.0);
+  return vec4<f32>(inner * expo, 1.0);
 }`, [LIB]);
 
 export const COMPOSITE = wgslFn(`

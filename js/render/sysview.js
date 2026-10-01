@@ -134,7 +134,7 @@ class Gas extends Base {
 const KIND_ID = { ms: 0, subgiant: 1, giant: 2, rsg: 3, bsg: 4, wr: 5, wd: 6, ns: 6, pulsar: 6, magnetar: 6, bh: 7, bd: 0 };
 class Star extends Base {
   constructor(view, body) {
-    super(view, body); const sp = body.spec; const U = this.U = { uA: V4(100, (sp.seed % 1000) / 7, body.conv, body.spots), uB: V4(sp.radiance, body.flare, sp.compact ? 6 : 0, 0), col: C3(sp.color), glowCol: C3(sp.color), glowCenter: V3(), glowHalf: F(1), glowInten: F(1), cCenter: V3(), cHalf: F(1), cInten: F(1), cRStar: F(0.2) };
+    super(view, body); const sp = body.spec; const U = this.U = { uA: V4(100, (sp.seed % 1000) / 7, body.conv, body.spots), uB: V4(sp.radiance, body.flare, sp.compact ? 6 : 0, 0), col: C3(sp.color.map((x) => Math.pow(x, 1.3))), glowCol: C3(sp.color.map((x) => Math.pow(x, 1.8))), glowCenter: V3(), glowHalf: F(1), glowInten: F(1), cCenter: V3(), cHalf: F(1), cInten: F(1), cRStar: F(0.2) };
     this.isBH = sp.kind === 'bh'; if (this.isBH) U.glowCol = C3(blackbody(body.accretion ? body.accretion.temp : 3500).map((x) => x * 1.0));
     if (!this.isBH) {
       const mat = new THREE.NodeMaterial(); const dl = varying(positionLocal.normalize(), 'sDL'); const nw = varying(normalWorld, 'sNW');
@@ -197,7 +197,7 @@ class Star extends Base {
     if (this.corona) {
       const ch = Math.max(radPx * 6.0, 1);
       this.corona.visible = radPx > 6; this.U.cCenter.value.set(posRel[0], posRel[1], posRel[2]); this.U.cHalf.value = Rkm * 6.0; this.U.cRStar.value = 1 / 6.0;
-      this.U.cInten.value = 0.9 * sp.radiance * 0.35;
+      this.U.cInten.value = 0.5 * sp.radiance * 0.35;
     }
     if (this.beams) {
       const period = Math.max(0.35, sp.spin) * 1; const a = TAU * (((t / period) % 1)); const incl = 0.5 + (sp.seed % 100) / 100;
@@ -296,7 +296,7 @@ class OrbitLine {
     // sample the orbit in the parent's frame (no parent motion): body positions relative to parent
     for (let i = 0; i < N; i++) { const M = (i / N) * TAU; const oo = { ...o, M0: M, P: 1 }; const p = orbitPos(oo, 0); pts[i * 3] = p[0] * KM; pts[i * 3 + 1] = p[1] * KM; pts[i * 3 + 2] = p[2] * KM; }
     this.center = V3(); this.alpha = F(0.5); const col = body.kind === 'star' ? [1, 0.9, 0.6] : body.kind === 'moon' ? [0.5, 0.7, 1] : [0.45, 0.85, 1];
-    this.mat = ribbonMaterial(this.center, C3(col), this.alpha, 1.1);
+    this.mat = ribbonMaterial(this.center, C3(col), this.alpha, 1.0);
     this.mesh = new THREE.Mesh(ribbonGeometry(pts, true), this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 8; view.scene.add(this.mesh);
     this.view = view;
   }
@@ -340,7 +340,7 @@ export class SystemView {
       const size = b.orbit.a; const sel = ctx.selected && (ctx.selected === b || ctx.selected.parent === b || b.parent === ctx.selected);
       const apparent = size / Math.max(pd, 1) ; // angular size
       let a = this.showOrbits ? clamp(1.2 - Math.abs(Math.log10(apparent + 1e-9) - 0.3) * 0.25, 0, 1) * (apparent < 0.004 ? 0 : 1) : 0;
-      if (sel) a = Math.max(a, 0.9); ol.alpha.value = a * (b.kind === 'moon' ? 0.55 : 0.5); ol.mesh.visible = a > 0.01;
+      if (sel) a = Math.max(a, 0.9); ol.alpha.value = a * (b.kind === 'moon' ? 0.28 : 0.34); ol.mesh.visible = a > 0.01;
     }
     this.nearest = nearest; this.nearestBody = nearestBody;
     if (sys.layout === 'accreting') { if (!this.stream) this.stream = new Stream(this, sys); this.stream.update(ctx, t); }
