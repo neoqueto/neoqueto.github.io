@@ -66,7 +66,7 @@ fn bhLens(tex: texture_2d<f32>, smp: sampler, uv: vec2<f32>,
       if (du < 0.0 && (u < 0.65 / D || phi > 7.0)) { break; }
     }
     if (!captured) { dirOut = normalize((e1 * cos(phi) + e2 * sin(phi)) * (1.0 / max(u, 1e-6)) - prev); if (!(length(dirOut) > 0.5)) { dirOut = ray; } }
-    glow = exp(-pow((b - 2.6) / 0.35, 2.0)) * 0.6;
+    glow = exp(-sq((b - 2.6) / 0.35)) * 0.6;
   } else {
     // weak field: rotate ray towards the BH by 2/b
     let al = 2.0 / max(b, 1.0);

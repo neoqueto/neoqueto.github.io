@@ -1,6 +1,7 @@
 // Star-system layer: stars, planets (LOD terrain / gas), moons, rings, belts, orbit lines. Units: km, camera at origin.
 import { THREE, uniform, attribute, varying, positionGeometry, positionLocal, positionWorld, normalWorld, modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix, vec2, vec3, vec4, float, V3, V4, F, C3, G, transparentMat, billboardMaterial, billboardMesh, instancedQuads, ribbonMaterial, ribbonGeometry } from './mat.js';
-import { ROCKY, GAS, CLOUD, ATMOS, RING, STARSURF, GLOW, CORONA } from '../shaders/bodies.js';
+import { ATMOS, RING, STARSURF, GLOW, CORONA } from '../shaders/bodies.js';
+import { ROCKY, GAS, GASVOL, CLOUD } from '../shaders/planets.js';
 import { PlanetLOD } from './lod.js';
 import { C, TAU, qrot, qconj, qfromAxisAngle, qmul, v3, orbitPos, clamp, blackbody } from '../core.js';
 import { bodyPos } from '../gen/system.js';
@@ -41,25 +42,29 @@ function applyLights(U, sys, body, pos, t, Q, bodiesNear) {
 }
 
 // ---- rocky planet / moon / asteroid -----------------------------------------------------
+function rotRows(U, Q) { const a = qrot(Q, [1, 0, 0]), b = qrot(Q, [0, 1, 0]), c = qrot(Q, [0, 0, 1]); U.m0.value.set(a[0], a[1], a[2]); U.m1.value.set(b[0], b[1], b[2]); U.m2.value.set(c[0], c[1], c[2]); }
 class Rocky extends Base {
   constructor(view, body) {
     super(view, body); const v = body.visual, T = { ...v.T }; this.T = T; const R = body.radius;
-    const U = this.U = { ...lightUniforms(), ...atmUniforms(v.atm, R) };
-    U.uA = V4(BIOME_ID[body.asteroid ? 'barren' : body.biome] ?? 3, (body.seed % 9973) / 97, R * KM, ((T.contAmp || 0) + (T.mountAmp || 0) + (T.craterAmp || 0) + 800) * KM);
+    const U = this.U = { ...lightUniforms(), ...atmUniforms(v.atm, R), m0: V3(1, 0, 0), m1: V3(0, 1, 0), m2: V3(0, 0, 1) };
+    U.uA = V4(BIOME_ID[body.asteroid ? 'barren' : body.biome] ?? 3, (body.seed % 9973) / 97, R * KM, ((T.contAmp || 0) + (T.mountAmp || 0) + (T.chainAmp || 0) * 0.6 + (T.volcAmp || 0) * 0.5 + (T.craterAmp || 0) + 800) * KM);
     if (body.asteroid) U.uA.value.x = 9;
     U.uB = V4(v.ocean ? 1 : 0, v.polar || 0, v.veg || 0, v.lava || 0);
     U.uC = V4(v.snowLine || 0.85, v.dune || 0, v.crack || 0, v.maria ?? 0.4); if (body.asteroid) U.uC.value.z = v.dark || 1;
+    U.uD = V4(v.fluid ? v.fluid.type : 2, 0, 0, 0); U.cF = C3(v.fluid ? v.fluid.col : [0.1, 0.1, 0.1]);
     const p = v.pal; const col = (c, d = [0.5, 0.5, 0.5]) => C3(c || d);
     U.cLow = col(p.low); U.cMid = col(p.mid); U.cDry = col(p.dry); U.cHigh = col(p.high); U.cSnow = col(p.snow); U.cSand = col(p.sand);
     U.cWS = col(v.ocean && v.ocean.shallow, [0, 0.2, 0.3]); U.cWD = col(v.ocean && v.ocean.deep, [0, 0.03, 0.1]); U.cLava = col(v.lavaCol, [1, 0.3, 0.05]);
     U.cld = V4(v.clouds ? v.clouds.cover : 0, (v.clouds ? v.clouds.alt : 0) * KM, v.clouds ? v.clouds.speed : 0, (body.seed % 777) * 0.01);
     U.cCol = C3(v.clouds ? v.clouds.color : [1, 1, 1]);
     const mat = new THREE.NodeMaterial();
-    const nA = attribute('nrm', 'vec3');
-    const vN = varying(modelWorldMatrix.mul(vec4(nA, 0.0)).xyz, 'vNW'); const vD = varying(attribute('dir', 'vec3'), 'vDL'); const vE = varying(attribute('elev', 'float'), 'vEl');
-    mat.fragmentNode = ROCKY({ dirL: vD, nW: vN, posW: positionWorld, elev: vE, pc: U.pc, uA: U.uA, uB: U.uB, uC: U.uC, cLow: U.cLow, cMid: U.cMid, cDry: U.cDry, cHigh: U.cHigh, cSnow: U.cSnow, cSand: U.cSand, cWS: U.cWS, cWD: U.cWD, cLava: U.cLava, sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1, sL0: U.sL0, aRay: U.aRay, aAbs: U.aAbs, aP: U.aP, aH: U.aH, cld: U.cld, time: G.time, o0: U.o0, o1: U.o1, o2: U.o2 });
+    const nA = attribute('nrm', 'vec3'); const tLoc = nA.cross(vec3(0.0013, 1.0, 0.0021)).normalize(); const bLoc = nA.cross(tLoc).normalize();
+    const toW = (x) => modelWorldMatrix.mul(vec4(x, 0.0)).xyz;
+    const vN = varying(toW(nA), 'vNW'), vTW = varying(toW(tLoc), 'vTW'), vBW = varying(toW(bLoc), 'vBW'), vTL = varying(tLoc, 'vTL'), vBL = varying(bLoc, 'vBL');
+    const vD = varying(attribute('dir', 'vec3'), 'vDL'); const vA = varying(attribute('aux', 'vec3'), 'vAux');
+    mat.fragmentNode = ROCKY({ dirL: vD, nW: vN, tW: vTW, bW: vBW, tL: vTL, bL: vBL, posW: positionWorld, aux: vA, pc: U.pc, uA: U.uA, uB: U.uB, uC: U.uC, uD: U.uD, cLow: U.cLow, cMid: U.cMid, cDry: U.cDry, cHigh: U.cHigh, cSnow: U.cSnow, cSand: U.cSand, cWS: U.cWS, cWD: U.cWD, cLava: U.cLava, cF: U.cF, sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1, sL0: U.sL0, aRay: U.aRay, aAbs: U.aAbs, aP: U.aP, aH: U.aH, cld: U.cld, time: G.time, o0: U.o0, o1: U.o1, o2: U.o2 });
     mat.side = THREE.FrontSide; this.mat = mat;
-    const spacing = body.asteroid ? 2 : 6; let maxLevel = Math.max(1, Math.min(15, Math.ceil(Math.log2(R * Math.PI / 2 / (32 * spacing)))));
+    const spacing = body.asteroid ? 2 : 5; let maxLevel = Math.max(1, Math.min(16, Math.ceil(Math.log2(R * Math.PI / 2 / (32 * spacing)))));
     this.lod = new PlanetLOD(T, mat, this.group, maxLevel); this.axes = T.axes || [1, 1, 1];
     if (v.atm && body.cls === 'rocky') this.addShells(v, R);
     if (body.ring) this.addRing(body, R);
@@ -67,10 +72,11 @@ class Rocky extends Base {
   addShells(v, R) {
     const U = this.U; const Ha = v.atm.height;
     if (v.clouds && v.clouds.cover > 0.02) {
-      const m = new THREE.NodeMaterial(); const dl = varying(positionLocal.normalize(), 'cDL'); const nw = varying(normalWorld, 'cNW');
-      m.fragmentNode = CLOUD({ dirL: dl, nW: nw, posW: positionWorld, pc: U.pc, cld: U.cld, cCol: U.cCol, sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1, time: G.time, R: float(R * KM), o0: U.o0, o1: U.o1, o2: U.o2 });
+      const altKm = v.clouds.alt * KM, thick = Math.max(4, altKm * 0.6); this.cloudTop = (R * KM + altKm + thick);
+      const m = new THREE.NodeMaterial();
+      m.fragmentNode = CLOUD({ posW: positionWorld, pc: U.pc, m0: U.m0, m1: U.m1, m2: U.m2, cld: U.cld, cCol: U.cCol, sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1, time: G.time, R: float(R * KM), thick: float(thick), pix: float(1).div(G.focal) });
       transparentMat(m, 'premult', true); m.side = THREE.DoubleSide;
-      const g = new THREE.SphereGeometry((R + v.clouds.alt) * KM, 96, 64); this.cloud = new THREE.Mesh(g, m); this.cloud.renderOrder = 3; this.cloud.frustumCulled = false; this.group.add(this.cloud);
+      this.cloud = new THREE.Mesh(new THREE.SphereGeometry(this.cloudTop, 96, 64), m); this.cloud.renderOrder = 3; this.cloud.frustumCulled = false; this.group.add(this.cloud);
     }
     const m2 = new THREE.NodeMaterial(); m2.fragmentNode = ATMOS({ posW: positionWorld, pc: U.pc, R: float(R * KM), aRay: U.aRay, aAbs: U.aAbs, aP: U.aP, aH: float(Ha * KM), sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1 });
     transparentMat(m2, 'atmo', true); m2.side = THREE.BackSide;
@@ -80,7 +86,7 @@ class Rocky extends Base {
   update(ctx, posRel, pos, t) {
     const b = this.body, sys = b.sys; const Q = spinQuat(b, t); this.Q = Q;
     this.group.position.set(posRel[0], posRel[1], posRel[2]); this.group.quaternion.set(Q[0], Q[1], Q[2], Q[3]);
-    this.U.pc.value.set(posRel[0], posRel[1], posRel[2]);
+    this.U.pc.value.set(posRel[0], posRel[1], posRel[2]); rotRows(this.U, Q);
     const near = []; if (b.moons) for (const m of b.moons) near.push(m); if (b.parent && b.kind === 'moon') near.push(b.parent);
     applyLights(this.U, sys, b, pos, t, Q, near);
     const cl = qrot(qconj(Q), [-posRel[0] * 1000, -posRel[1] * 1000, -posRel[2] * 1000]);
@@ -103,31 +109,36 @@ function makeRing(body, R, U) {
   mesh.userData.update = (Q) => { const n = qrot(Q, [0, 1, 0]); nrmW.value.set(n[0], n[1], n[2]); };
   return mesh;
 }
-// R given in metres inside RING() (positionLocal is km): handled by pl*1000 & R in metres => both metres. uniforms (pc/posW) are km; ring uses raySphere with R(m) vs rel(km) - fix by passing R in km:
-// (see makeRing: R param is metres, but shader compares rel(km) against R, so we pass R*KM below.)
 
-// ---- gas giant -------------------------------------------------------------------------------
+// ---- gas giant: outer cloud-top surface + ray-marched volume (dive to the metallic-hydrogen ocean) -----------------------------
 class Gas extends Base {
   constructor(view, body) {
-    super(view, body); const v = body.visual, R = body.radius; const U = this.U = { ...lightUniforms(), ...atmUniforms(v.atm, R) };
-    U.uA = V4(0, v.seed, R * KM, v.bands); U.uB = V4(v.contrast, v.turb, v.hot, v.haze); U.uC = V4();
+    super(view, body); const v = body.visual, R = body.radius; const U = this.U = { ...lightUniforms(), ...atmUniforms(v.atm, R), m0: V3(1, 0, 0), m1: V3(0, 1, 0), m2: V3(0, 0, 1) };
+    U.uA = V4(0, v.seed, R * KM, v.bands); U.uB = V4(v.contrast, v.turb, v.hot, v.haze);
     const pal = v.pal; ['p0', 'p1', 'p2', 'p3', 'p4'].forEach((k, i) => (U[k] = C3(pal[i])));
     const st = v.storm; U.storm = V4(st ? st.lat : 0, st ? st.size : 0.05, st ? st.lon : 0, st ? 1 : 0); U.stormCol = C3(st ? st.col : [0.8, 0.4, 0.3]);
     const mat = new THREE.NodeMaterial(); const dl = varying(positionLocal.normalize(), 'gDL'); const nw = varying(normalWorld, 'gNW');
-    mat.fragmentNode = GAS({ dirL: dl, nW: nw, posW: positionWorld, pc: U.pc, uA: U.uA, uB: U.uB, uC: U.uC, p0: U.p0, p1: U.p1, p2: U.p2, p3: U.p3, p4: U.p4, stormCol: U.stormCol, storm: U.storm, sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1, aRay: U.aRay, aAbs: U.aAbs, aP: U.aP, aH: U.aH, time: G.time, o0: U.o0, o1: U.o1, o2: U.o2 });
-    const geo = new THREE.SphereGeometry(R * KM, 128, 96); this.mesh = new THREE.Mesh(geo, mat); this.mesh.frustumCulled = false; this.group.add(this.mesh);
+    mat.fragmentNode = GAS({ dirL: dl, nW: nw, posW: positionWorld, pc: U.pc, uA: U.uA, uB: U.uB, p0: U.p0, p1: U.p1, p2: U.p2, p3: U.p3, p4: U.p4, stormCol: U.stormCol, storm: U.storm, sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1, aRay: U.aRay, aAbs: U.aAbs, aP: U.aP, aH: U.aH, time: G.time, o0: U.o0, o1: U.o1, o2: U.o2 });
+    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(R * KM, 128, 96), mat); this.mesh.frustumCulled = false; this.group.add(this.mesh);
     const Ha = v.atm.height; const m2 = new THREE.NodeMaterial(); m2.fragmentNode = ATMOS({ posW: positionWorld, pc: U.pc, R: float(R * KM), aRay: U.aRay, aAbs: U.aAbs, aP: U.aP, aH: float(Ha * KM), sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1 });
     transparentMat(m2, 'atmo', true); m2.side = THREE.BackSide; this.atmo = new THREE.Mesh(new THREE.SphereGeometry((R + Ha) * KM, 96, 64), m2); this.atmo.renderOrder = 4; this.atmo.frustumCulled = false; this.group.add(this.atmo);
-    this.oblate = 0.02 + Math.min(0.1, (v.seed % 11) * 0.007); this.mesh.scale.y = 1 - this.oblate;
+    // volume
+    this.coreFrac = body.coreFrac || 0.68; U.uV = V4(R * KM, v.seed, v.bands, this.coreFrac); U.volMix = F(0); U.thermK = F(0.5); U.coreCol = C3(body.coreCol || [0.85, 0.7, 0.55]);
+    const mv = new THREE.NodeMaterial();
+    mv.fragmentNode = GASVOL({ posW: positionWorld, pc: U.pc, m0: U.m0, m1: U.m1, m2: U.m2, uV: U.uV, uB: U.uB, p0: U.p0, p1: U.p1, p2: U.p2, p3: U.p3, p4: U.p4, stormCol: U.stormCol, storm: U.storm, sd0: U.sd0, sc0: U.sc0, sd1: U.sd1, sc1: U.sc1, time: G.time, volMix: U.volMix, thermK: U.thermK, pix: float(1).div(G.focal), coreCol: U.coreCol });
+    transparentMat(mv, 'premult', true); mv.side = THREE.DoubleSide;
+    this.vol = new THREE.Mesh(new THREE.SphereGeometry(R * 1.006 * KM, 128, 96), mv); this.vol.renderOrder = 5; this.vol.frustumCulled = false; this.vol.visible = false; this.group.add(this.vol);
     if (body.ring) { this.ringMesh = makeRing(body, R, U); this.group.add(this.ringMesh); }
   }
   update(ctx, posRel, pos, t) {
-    const b = this.body; const Q = spinQuat(b, t); this.Q = Q;
-    this.group.position.set(posRel[0], posRel[1], posRel[2]); this.group.quaternion.set(Q[0], Q[1], Q[2], Q[3]); this.U.pc.value.set(posRel[0], posRel[1], posRel[2]);
+    const b = this.body; const Q = spinQuat(b, t); this.Q = Q; const R = b.radius;
+    this.group.position.set(posRel[0], posRel[1], posRel[2]); this.group.quaternion.set(Q[0], Q[1], Q[2], Q[3]); this.U.pc.value.set(posRel[0], posRel[1], posRel[2]); rotRows(this.U, Q);
     const near = []; if (b.moons) for (const m of b.moons) near.push(m);
     applyLights(this.U, b.sys, b, pos, t, Q, near);
     if (this.ringMesh) this.ringMesh.userData.update(Q);
-    this.altitude = Math.hypot(posRel[0], posRel[1], posRel[2]) * 1000 - b.radius;
+    const alt = Math.hypot(posRel[0], posRel[1], posRel[2]) * 1000 - R; this.altitude = alt; const a = alt / R;
+    const volMix = 1 - clamp((a - 0.25) / 0.75, 0, 1); this.U.volMix.value = volMix; this.U.thermK.value = 0.5 * G.invExp.value;
+    this.vol.visible = volMix > 0.002; this.mesh.visible = volMix < 0.999; this.atmo.visible = a > 0.05;
   }
 }
 // ---- star -----------------------------------------------------------------------------------------

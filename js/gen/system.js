@@ -67,65 +67,100 @@ const hsv = (h, s, v) => { const f = (n) => { const k = (n + h * 6) % 6; return 
 
 function rockyVisual(p, r, Teq, starCol) {
   const R = p.radius, g = p.gravity;
-  const T = { seed: p.seed % 100000, radius: R, seaLevel: -1e9, irregular: 0, axes: null, craterDensity: 0, craterAmp: 0, contAmp: 0, contFreq: 1.2, mountFreq: 4, mountAmp: 0, mountMask: -0.1, ridgeW: 1, rough: 0, terrace: 0 };
-  const relief = 9000 * (9.81 / g) * r.range(0.6, 1.3) * Math.min(1.5, R / C.REARTH + 0.3);  // lower gravity -> taller mountains
-  const v = { type: p.biome, pal: {}, clouds: null, atm: null, ocean: null, ice: 0, lava: 0, veg: 0, polar: 0, roughness: 0.7, crack: 0, dune: 0, snowLine: 0.9 };
+  const relief = 9000 * (9.81 / g) * r.range(0.6, 1.3) * Math.min(1.5, R / C.REARTH + 0.3);
+  const T = { seed: p.seed % 100000, radius: R, relief, seaLevel: -1e9, irregular: 0, axes: null, craterDensity: 0, craterAmp: 0, contAmp: 0, contFreq: 1.2, mountFreq: 4, mountAmp: 0, mountMask: -0.1, ridgeW: 1, rough: 0, terrace: 0,
+    warp: r.range(0.25, 0.6), chainAmp: 0, plateFreq: r.range(1.6, 3), riverAmp: 0, riverFreq: r.range(3.5, 7), riverW: r.range(0.02, 0.035), canyonAmp: 0, canyonFreq: r.range(2, 4), canyonW: r.range(0.025, 0.045), canyonFill: false,
+    lakeAmp: 0, lakeFreq: r.range(2.5, 4.5), lakeThr: r.range(0.16, 0.3), lakeLevel: 0, volcDensity: 0, volcFreq: r.range(3.5, 6), volcAmp: 0, lavaCaldera: false };
+  const v = { type: p.biome, pal: {}, clouds: null, atm: null, ocean: null, ice: 0, lava: 0, veg: 0, polar: 0, roughness: 0.7, crack: 0, dune: 0, snowLine: 0.9, fluid: { type: 2, col: [0.1, 0.08, 0.06] }, style: '' };
   const hueV = r();
   switch (p.biome) {
-    case 'terran': {
-      T.contAmp = relief * 0.5; T.mountAmp = relief * 0.7; T.contFreq = r.range(0.9, 1.5); T.mountFreq = r.range(3, 5); T.rough = relief * 0.02; T.mountMask = r.range(0.0, 0.1);
-      const wf = r.range(0.5, 0.78); T.seaLevel = relief * (wf - 0.5) * 0.9 - 0.06 * relief + (wf > 0.7 ? 600 : 0);
+    case 'terran': case 'ocean': {
+      const ocean = p.biome === 'ocean';
+      const style = ocean ? 'archipelago' : r.pick(['continents', 'continents', 'archipelago', 'pangaea', 'highlands']); v.style = style;
+      let wf, cf;
+      if (style === 'continents') { wf = r.range(0.55, 0.74); cf = r.range(0.9, 1.4); T.chainAmp = relief * r.range(0.7, 1.1); }
+      else if (style === 'archipelago') { wf = ocean ? r.range(0.82, 0.92) : r.range(0.7, 0.84); cf = r.range(2.2, 3.2); T.chainAmp = relief * 0.5; }
+      else if (style === 'pangaea') { wf = r.range(0.38, 0.52); cf = r.range(0.55, 0.8); T.chainAmp = relief * 1.2; }
+      else { wf = r.range(0.3, 0.46); cf = r.range(1.1, 1.6); T.chainAmp = relief * 0.9; T.canyonAmp = relief * 0.18; }
+      T.contAmp = relief * 0.5; T.mountAmp = relief * r.range(0.45, 0.8); T.contFreq = cf; T.mountFreq = r.range(3, 5); T.rough = relief * 0.02; T.mountMask = r.range(0.0, 0.1);
+      T.seaLevel = relief * (wf - 0.5) * 0.9;
+      if (!ocean) { T.riverAmp = relief * r.range(0.03, 0.07); T.lakeAmp = relief * 0.08; T.lakeLevel = relief * 0.03; T.lakeThr = r.range(0.17, 0.26); }
+      T.volcDensity = ocean ? 0.16 : r.range(0.01, 0.05); T.volcAmp = relief * (ocean ? 0.9 : 0.5);
+      T.craterDensity = 0.02; T.craterAmp = 700;
       v.ocean = { shallow: [0.03, 0.24 + 0.1 * r(), 0.32 + 0.1 * r()], deep: [0.005, 0.04, 0.12 + 0.05 * r()], level: 0, foam: 0.7 };
+      v.fluid = { type: 0, col: v.ocean.shallow };
       const vegHue = starCol[2] < 0.5 ? r.range(0.0, 0.1) : r.pick([0.27, 0.3, 0.22, 0.18, 0.38]);
       v.pal = { low: hsv(vegHue, 0.75, 0.22 + r() * 0.1), mid: hsv(vegHue + 0.03, 0.5, 0.27), dry: hsv(0.1 + r() * 0.04, 0.45, 0.4), high: [0.3, 0.28, 0.26], snow: [0.9, 0.93, 0.97], sand: hsv(0.12, 0.35, 0.7) };
+      if (ocean) v.pal = { low: [0.15, 0.2, 0.1], mid: [0.2, 0.25, 0.15], dry: [0.4, 0.35, 0.2], high: [0.3, 0.28, 0.26], snow: [0.9, 0.93, 0.97], sand: [0.7, 0.65, 0.5] };
       v.veg = r.range(0.4, 1); v.polar = r.range(0.3, 0.9) * (Teq < 285 ? 1.3 : 0.7); v.snowLine = r.range(0.55, 0.85);
-      v.atm = { ...ATM.earth, ray: ATM.earth.ray.map((x) => x * r.range(0.8, 1.3)) }; v.clouds = { cover: r.range(0.35, 0.65), color: [1, 1, 1], alt: 9000, speed: 1 };
-      break;
-    }
-    case 'ocean': {
-      T.contAmp = relief * 0.18; T.mountAmp = relief * 0.2; T.contFreq = 1.4; T.rough = relief * 0.01; T.seaLevel = relief * 0.15 + 500;
-      v.ocean = { shallow: [0.04, 0.3, 0.38], deep: [0.003, 0.03, 0.1], level: 0, foam: 0.9 };
-      v.pal = { low: [0.15, 0.2, 0.1], mid: [0.2, 0.25, 0.15], dry: [0.4, 0.35, 0.2], high: [0.3, 0.28, 0.26], snow: [0.9, 0.93, 0.97], sand: [0.7, 0.65, 0.5] }; v.polar = 0.5; v.atm = ATM.earth; v.clouds = { cover: r.range(0.55, 0.85), color: [1, 1, 1], alt: 9000, speed: 1.3 };
+      v.atm = { ...ATM.earth, ray: ATM.earth.ray.map((x) => x * r.range(0.8, 1.3)) }; v.clouds = { cover: ocean ? r.range(0.55, 0.85) : r.range(0.35, 0.65), color: [1, 1, 1], alt: 9000, speed: ocean ? 1.3 : 1 };
       break;
     }
     case 'desert': {
-      T.contAmp = relief * 0.35; T.mountAmp = relief * 0.5; T.contFreq = r.range(1.4, 2.2); T.mountFreq = r.range(3, 6); T.rough = relief * 0.03; T.craterDensity = r.range(0, 0.12); T.craterAmp = 1500; T.mountMask = 0.05; T.terrace = relief * 0.04;
+      const style = r.pick(['dunes', 'canyonlands', 'mesas', 'cratered']); v.style = style;
+      T.contAmp = relief * 0.3; T.mountAmp = relief * 0.4; T.contFreq = r.range(1.4, 2.2); T.mountFreq = r.range(3, 6); T.rough = relief * 0.03; T.mountMask = 0.05;
+      T.chainAmp = relief * r.range(0.2, 0.5);
+      if (style === 'canyonlands') { T.canyonAmp = relief * r.range(0.4, 0.7); T.canyonFreq = r.range(2, 3.4); T.terrace = relief * 0.05; }
+      else if (style === 'mesas') { T.terrace = relief * 0.13; T.canyonAmp = relief * 0.3; T.mountAmp = relief * 0.25; }
+      else if (style === 'cratered') { T.craterDensity = r.range(0.3, 0.55); T.craterAmp = 2200; }
+      else { T.contAmp = relief * 0.22; T.rough = relief * 0.015; }
+      if (style !== 'cratered') { T.craterDensity = r.range(0.04, 0.16); T.craterAmp = 1600; }
+      T.riverAmp = relief * 0.05; T.riverFreq = r.range(3, 5);
+      T.volcDensity = r.range(0.02, 0.07); T.volcAmp = relief * r.range(0.8, 2.0); T.volcFreq = r.range(2.2, 3.6);
       const hueD = r.pick([0.06, 0.08, 0.1, 0.04, 0.12]);
       v.pal = { low: hsv(hueD, 0.55, 0.42), mid: hsv(hueD + 0.01, 0.5, 0.52), dry: hsv(hueD + 0.03, 0.4, 0.62), high: hsv(hueD - 0.01, 0.4, 0.3), snow: [0.85, 0.8, 0.75], sand: hsv(hueD + 0.02, 0.35, 0.75) };
       v.dune = r.range(0.4, 1); v.polar = Teq < 240 ? 0.4 : 0.1; v.atm = ATM.mars; v.clouds = { cover: r.range(0, 0.15), color: [0.95, 0.85, 0.8], alt: 12000, speed: 2 };
+      v.fluid = { type: 2, col: hsv(hueD, 0.5, 0.18) };
       break;
     }
     case 'barren': case 'moon': {
-      T.contAmp = relief * 0.22; T.mountAmp = relief * 0.18; T.contFreq = 1.1; T.mountFreq = 5; T.mountMask = 0.2; T.rough = relief * 0.015; T.craterDensity = r.range(0.35, 0.8); T.craterAmp = 2500 * Math.min(2, R / 1.7e6 + 0.3) * (9.8 / g) ** 0.4;
+      T.contAmp = relief * 0.18; T.mountAmp = relief * 0.15; T.contFreq = 1.1; T.mountFreq = 5; T.mountMask = 0.2; T.rough = relief * 0.015;
+      T.craterDensity = r.range(0.4, 0.85); T.craterAmp = 2500 * Math.min(2, R / 1.7e6 + 0.3) * (9.8 / g) ** 0.4;
+      T.canyonAmp = relief * 0.06; T.canyonW = r.range(0.008, 0.016); T.canyonFreq = r.range(4, 7); T.canyonFill = false; T.riverAmp = 0;
+      if (r() < 0.25) { T.volcDensity = 0.03; T.volcAmp = relief * 0.4; }
       const l = r.range(0.2, 0.42), tint = r.range(-0.03, 0.05);
       v.pal = { low: [l * 0.55, l * 0.53, l * 0.5], mid: [l * 0.9 + tint, l * 0.85, l * 0.8], dry: [l * 1.2, l * 1.12 + tint, l * 1.0], high: [l * 1.4, l * 1.35, l * 1.3], snow: [0.7, 0.7, 0.7], sand: [l, l, l] };
       v.maria = r.range(0.2, 0.6); v.atm = null; break;
     }
     case 'ice': {
-      T.contAmp = relief * 0.1; T.mountAmp = relief * 0.12; T.contFreq = 1.6; T.mountFreq = 6; T.rough = relief * 0.005; T.craterDensity = r.range(0.05, 0.4); T.craterAmp = 1200;
+      const style = r.pick(['cracked', 'cratered', 'cryovolcanic']); v.style = style;
+      T.contAmp = relief * 0.08; T.mountAmp = relief * 0.1; T.contFreq = 1.6; T.mountFreq = 6; T.rough = relief * 0.005;
+      if (style === 'cracked') { T.canyonAmp = relief * 0.05; T.canyonW = r.range(0.01, 0.018); T.canyonFreq = r.range(3, 6); T.canyonFill = true; T.craterDensity = 0.06; T.craterAmp = 900; T.riverAmp = relief * 0.02; T.riverW = 0.012; }
+      else if (style === 'cratered') { T.craterDensity = r.range(0.35, 0.6); T.craterAmp = 1500; T.canyonAmp = relief * 0.03; T.canyonW = 0.01; }
+      else { T.volcDensity = r.range(0.06, 0.14); T.volcAmp = relief * 0.3; T.craterDensity = 0.1; T.craterAmp = 900; T.canyonAmp = relief * 0.04; T.canyonW = 0.012; T.canyonFill = true; }
       const tint = r.range(0, 1);
       v.pal = { low: [0.62, 0.72 + 0.1 * tint, 0.82], mid: [0.8, 0.86, 0.9], dry: [0.9, 0.93, 0.96], high: [0.95, 0.96, 0.98], snow: [0.95, 0.97, 1], sand: [0.6, 0.45 + 0.1 * tint, 0.35] };
-      v.crack = r.range(0.2, 1); v.ice = 1; v.atm = r() < 0.35 ? { ...ATM.mars, ray: [3e-6, 5e-6, 8e-6], mie: 8e-6 } : null; v.clouds = null; break;
+      v.crack = r.range(0.4, 1); v.ice = 1; v.atm = r() < 0.35 ? { ...ATM.mars, ray: [3e-6, 5e-6, 8e-6], mie: 8e-6 } : null; v.clouds = null;
+      v.fluid = { type: 2, col: [0.35, 0.18, 0.1] }; break;
     }
     case 'lava': {
-      T.contAmp = relief * 0.3; T.mountAmp = relief * 0.5; T.contFreq = 1.8; T.mountFreq = 6; T.rough = relief * 0.03; T.mountMask = 0.0; T.craterDensity = r.range(0, 0.2); T.craterAmp = 1500;
+      T.contAmp = relief * 0.3; T.mountAmp = relief * 0.35; T.contFreq = 1.8; T.mountFreq = 6; T.rough = relief * 0.03; T.mountMask = 0.0; T.chainAmp = relief * 0.8; T.warp = 0.6;
+      T.volcDensity = r.range(0.22, 0.36); T.volcAmp = relief * r.range(0.6, 1.1); T.lavaCaldera = true; T.volcFreq = r.range(4, 7);
+      T.riverAmp = relief * 0.06; T.riverW = r.range(0.025, 0.04); T.lakeAmp = relief * 0.1; T.lakeLevel = relief * 0.02; T.lakeThr = r.range(0.14, 0.22);
+      T.craterDensity = r.range(0.02, 0.15); T.craterAmp = 1500; T.seaLevel = relief * -0.02;
       v.pal = { low: [0.015, 0.012, 0.012], mid: [0.05, 0.04, 0.035], dry: [0.1, 0.07, 0.05], high: [0.14, 0.11, 0.09], snow: [0.3, 0.25, 0.2], sand: [0.2, 0.1, 0.05] };
-      v.lava = r.range(0.5, 1); v.lavaCol = [1.0, 0.25 + 0.2 * r(), 0.03]; v.atm = { ...ATM.sulfur, ray: [10e-6, 7e-6, 3e-6], mie: 7e-6 }; v.clouds = { cover: 0.85, color: [0.22, 0.12, 0.08], alt: 12000, speed: 1.5 }; break;
+      v.lava = r.range(0.5, 1); v.lavaCol = [1.0, 0.25 + 0.2 * r(), 0.03]; v.fluid = { type: 1, col: v.lavaCol };
+      v.atm = { ...ATM.sulfur, ray: [10e-6, 7e-6, 3e-6], mie: 7e-6 }; v.clouds = { cover: 0.85, color: [0.22, 0.12, 0.08], alt: 12000, speed: 1.5 }; break;
     }
     case 'volcanic': {
-      T.contAmp = relief * 0.18; T.mountAmp = relief * 0.35; T.contFreq = 2.2; T.mountFreq = 5; T.rough = relief * 0.015; T.craterDensity = 0.03; T.craterAmp = 800;
+      T.contAmp = relief * 0.15; T.mountAmp = relief * 0.2; T.contFreq = 2.2; T.mountFreq = 5; T.rough = relief * 0.015; T.chainAmp = relief * 0.4;
+      T.volcDensity = r.range(0.35, 0.55); T.volcAmp = relief * r.range(0.5, 0.9); T.lavaCaldera = true; T.volcFreq = r.range(5, 8);
+      T.riverAmp = relief * 0.04; T.lakeAmp = relief * 0.06; T.lakeLevel = relief * 0.01; T.lakeThr = 0.2; T.craterDensity = 0.03; T.craterAmp = 800; T.seaLevel = -relief * 0.02;
       v.pal = { low: [0.45, 0.4, 0.08], mid: [0.6, 0.55, 0.15], dry: [0.7, 0.6, 0.25], high: [0.55, 0.28, 0.1], snow: [0.9, 0.9, 0.75], sand: [0.7, 0.62, 0.2] };
-      v.lava = r.range(0.2, 0.6); v.lavaCol = [1.0, 0.35, 0.05]; v.atm = null; break;
+      v.lava = r.range(0.2, 0.6); v.lavaCol = [1.0, 0.35, 0.05]; v.fluid = { type: 1, col: v.lavaCol }; v.atm = null; break;
     }
     case 'venus': {
-      T.contAmp = relief * 0.3; T.mountAmp = relief * 0.5; T.contFreq = 1.3; T.mountFreq = 4; T.rough = relief * 0.02; T.mountMask = 0.1;
+      T.contAmp = relief * 0.3; T.mountAmp = relief * 0.4; T.contFreq = 1.3; T.mountFreq = 4; T.rough = relief * 0.02; T.mountMask = 0.1; T.chainAmp = relief * 0.9; T.terrace = relief * 0.03;
+      T.canyonAmp = relief * 0.3; T.canyonW = 0.03; T.volcDensity = r.range(0.06, 0.14); T.volcAmp = relief * 0.8; T.craterDensity = 0.02; T.craterAmp = 900;
       v.pal = { low: [0.25, 0.14, 0.07], mid: [0.32, 0.2, 0.1], dry: [0.4, 0.28, 0.15], high: [0.45, 0.35, 0.25], snow: [0.7, 0.6, 0.45], sand: [0.5, 0.35, 0.2] };
-      v.atm = ATM.thick; v.clouds = { cover: 1, color: [0.95, 0.82, 0.55], alt: 50000, speed: 4 }; v.thickAtm = 1; break;
+      v.atm = ATM.thick; v.clouds = { cover: 1, color: [0.95, 0.82, 0.55], alt: 50000, speed: 4 }; v.thickAtm = 1; v.fluid = { type: 2, col: [0.1, 0.06, 0.04] }; break;
     }
     case 'tholin': {
-      T.contAmp = relief * 0.2; T.mountAmp = relief * 0.2; T.contFreq = 1.2; T.mountFreq = 4; T.rough = relief * 0.01; T.seaLevel = relief * -0.1;
+      T.contAmp = relief * 0.2; T.mountAmp = relief * 0.2; T.contFreq = 1.2; T.mountFreq = 4; T.rough = relief * 0.01; T.seaLevel = relief * -0.1; T.chainAmp = relief * 0.3;
+      T.riverAmp = relief * 0.04; T.lakeAmp = relief * 0.1; T.lakeLevel = relief * 0.0; T.lakeThr = 0.1; T.craterDensity = 0.03; T.craterAmp = 800;
       v.pal = { low: [0.18, 0.1, 0.04], mid: [0.25, 0.15, 0.06], dry: [0.35, 0.22, 0.1], high: [0.4, 0.3, 0.2], snow: [0.7, 0.6, 0.5], sand: [0.45, 0.3, 0.12] };
-      v.ocean = { shallow: [0.06, 0.05, 0.03], deep: [0.01, 0.01, 0.01], level: 0, foam: 0.1 }; v.atm = ATM.tholin; v.clouds = { cover: 0.55, color: [0.9, 0.6, 0.3], alt: 30000, speed: 1 }; break;
+      v.ocean = { shallow: [0.06, 0.05, 0.03], deep: [0.01, 0.01, 0.01], level: 0, foam: 0.1 }; v.fluid = { type: 3, col: [0.03, 0.025, 0.02] };
+      v.atm = ATM.tholin; v.clouds = { cover: 0.55, color: [0.9, 0.6, 0.3], alt: 30000, speed: 1 }; break;
     }
   }
   if (v.atm) { const k = p.pressure; v.atm = { ...v.atm, ray: v.atm.ray.map((x) => x * Math.max(0.15, Math.pow(k, 0.8))), mie: v.atm.mie * Math.max(0.2, Math.pow(k, 0.6)), Hr: v.atm.Hr * Math.pow(9.81 / g, 0.7) }; v.atm.height = v.atm.Hr * 7.5; }
@@ -182,6 +217,8 @@ function makeGas(r, o) {
   const kScale = Math.min(1, 8000 / gp.Hr) * 2.6; gp.ray = gp.ray.map((x) => x * kScale); gp.mie *= kScale; gp.absorb = gp.absorb.map((x) => x * kScale);
   gp.height = gp.Hr * 7; p.visual.atm = gp;
   p.pressure = 1e5; p.atmName = p.biome === 'neptunian' ? 'Hydrogen–helium–methane' : p.biome === 'hotjup' ? 'Hydrogen–helium, vaporised metals' : 'Hydrogen–helium, ammonia clouds';
+  p.coreFrac = p.biome === 'neptunian' || p.biome === 'subnep' ? r.range(0.55, 0.68) : r.range(0.6, 0.74);
+  p.coreCol = p.biome === 'neptunian' || p.biome === 'subnep' ? [0.5, 0.72, 0.92] : p.biome === 'hotjup' ? [0.92, 0.55, 0.35] : [0.86, 0.72, 0.55];
   p.biomeName = { jovian: 'Gas giant', saturnian: 'Gas giant (ringed type)', neptunian: 'Ice giant', subnep: 'Sub-Neptune', hotjup: 'Hot Jupiter' }[p.biome];
   return p;
 }
@@ -189,7 +226,7 @@ function makeAsteroid(r, o) {
   const p = { seed: o.seed, kind: 'moon', cls: 'rocky', asteroid: true, radius: o.radius, mass: o.mass, biome: 'barren', Teq: o.Teq, albedo: 0.07 + r() * 0.1 };
   p.gravity = C.G * o.mass / (o.radius ** 2); p.density = o.mass / (4 / 3 * Math.PI * o.radius ** 3); p.pressure = 0; p.atmName = 'None (vacuum)'; p.Tsurf = o.Teq; p.biomeName = 'Irregular body (captured asteroid)';
   const v = rockyVisual({ ...p, biome: 'moon', gravity: Math.max(p.gravity, 0.002) }, r, o.Teq, [1, 1, 1]);
-  const ax = [r.range(0.8, 1.2), r.range(0.55, 0.9), r.range(0.45, 0.8)]; v.T.irregular = r.range(0.12, 0.26); v.T.axes = ax; v.T.contAmp = 0; v.T.mountAmp = 0; v.T.rough = 0; v.T.craterDensity = r.range(0.5, 1); v.T.craterAmp = o.radius * 0.25; v.T.radius = o.radius; v.T.seaLevel = -1e9;
+  const ax = [r.range(0.8, 1.2), r.range(0.55, 0.9), r.range(0.45, 0.8)]; v.T.irregular = r.range(0.12, 0.26); v.T.axes = ax; v.T.contAmp = 0; v.T.mountAmp = 0; v.T.rough = 0; v.T.canyonAmp = 0; v.T.volcDensity = 0; v.T.craterDensity = r.range(0.5, 1); v.T.craterAmp = o.radius * 0.25; v.T.radius = o.radius; v.T.seaLevel = -1e9;
   v.type = 'barren'; v.dark = r.range(0.5, 1.1); p.visual = v; return p;
 }
 

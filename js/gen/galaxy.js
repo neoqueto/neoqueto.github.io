@@ -1,5 +1,5 @@
 // Inside a galaxy: density model, particle cloud, dust lanes, streamed star cells, nebulae. Coordinates: parsecs, galaxy disk frame (Y = disk normal).
-import { C, makeRng, seedOf, clamp, smooth, TAU, blackbody, qrot, qconj } from '../core.js';
+import { C, makeRng, seedOf, clamp, smooth, TAU, blackbody, qrot, qconj, qfromEuler } from '../core.js';
 import { snoise, fbm } from '../noise.js';
 import { nebulaName } from '../names.js';
 import { starSpec } from './system.js';
@@ -49,7 +49,7 @@ export function buildCloud(g, N) {
   const push = (x, y, z, col, size, br) => { if (n >= N) return; const o = n * 8; pts[o] = x; pts[o + 1] = y; pts[o + 2] = z; pts[o + 3] = col[0]; pts[o + 4] = col[1]; pts[o + 5] = col[2]; pts[o + 6] = size; pts[o + 7] = br; n++; };
   const yellow = [0.95, 0.72, 0.42], orange = [1.0, 0.55, 0.28], blue = [0.55, 0.7, 1.0], white = [1, 0.95, 0.88];
   const hue = g.hue; const tintY = [1, 0.7 + 0.2 * hue, 0.4 + 0.3 * hue];
-  const sizeBase = R * 0.0013;
+  const sizeBase = R * 0.0007;
   const young = (rad) => clamp(1.0 - rad * 1.3, 0.1, 1) * (g.sfr > 0.5 ? 1 : 0.5);
   const type = g.type;
   const emitDisk = (count, arms) => {
@@ -103,7 +103,7 @@ export function buildCloud(g, N) {
   for (let i = 0; i < dustN; i++) {
     const rad = 0.1 + Math.pow(r(), 0.8) * 0.78; let th;
     if (g.arms) { const k = Math.floor(r() * g.arms); th = k * TAU / g.arms + Math.log(rad / 0.08) / Math.tan(g.pitch) - 0.16 + r.gauss() * 0.07; } else th = r() * TAU;
-    const o = dn * 5; dust[o] = Math.cos(th) * rad * R; dust[o + 1] = r.gauss() * g.thick * R * 0.25; dust[o + 2] = Math.sin(th) * rad * R; dust[o + 3] = sizeBase * (4 + r() * 9); dust[o + 4] = (0.25 + r() * 0.5) * g.dust; dn++;
+    const o = dn * 5; dust[o] = Math.cos(th) * rad * R; dust[o + 1] = r.gauss() * g.thick * R * 0.25; dust[o + 2] = Math.sin(th) * rad * R; dust[o + 3] = sizeBase * (8 + r() * 18); dust[o + 4] = (0.25 + r() * 0.5) * g.dust; dn++;
   }
   return { pts: pts.subarray(0, n * 8), n, dust: dust.subarray(0, dn * 5), dn };
 }
@@ -115,13 +115,17 @@ export function nebulaeInCell(g, cx, cy, cz) {
   const r = makeRng('neb', g.seed, cx, cy, cz); const out = [];
   const p = [(cx + 0.5) * NEB_CELL, (cy + 0.5) * NEB_CELL, (cz + 0.5) * NEB_CELL];
   const d = galaxyDensity(g, p[0], p[1], p[2]);
-  let n = d > 0.35 ? (r() < clamp(d * 0.28, 0, 0.95) ? 1 : 0) : 0; if (d > 1.2 && r() < 0.45) n++;
+  let n = d > 0.35 ? (r() < clamp(d * 0.06, 0, 0.3) ? 1 : 0) : 0; if (d > 1.2 && r() < 0.08) n++;
   for (let i = 0; i < n; i++) {
-    const kind = r.weighted([['emission', 4], ['reflection', 2], ['dark', 2.2], ['planetary', 1.3], ['snr', 1.2]]);
-    const radius = kind === 'planetary' ? r.range(0.4, 2.2) : kind === 'snr' ? r.range(3, 30) : kind === 'dark' ? r.range(8, 50) : r.range(10, 80);
+    const ckind = r.weighted([['cloud', 7], ['planetary', 1.2], ['snr', 1.0]]);
+    const emit = ckind === 'cloud' ? Math.pow(r(), 0.8) : 1, dust = ckind === 'cloud' ? r.range(0.1, 1) : 0.2, refl = ckind === 'cloud' ? r.range(0, 0.7) * (1 - 0.5 * emit) : 0;
+    const nkind = ckind !== 'cloud' ? ckind : emit > 0.55 ? 'emission' : dust > 0.55 && emit < 0.35 ? 'dark' : 'reflection';
+    const radius = ckind === 'planetary' ? r.range(0.4, 2.2) : ckind === 'snr' ? r.range(3, 30) : r.logu(10, 90);
     const pos = [(cx + r()) * NEB_CELL, (cy + r() * 0.8 + 0.1) * NEB_CELL, (cz + r()) * NEB_CELL];
     const seed = seedOf('nebula', g.seed, cx, cy, cz, i);
-    out.push({ id: `${g.id}/n:${cx}:${cy}:${cz}:${i}`, kind: 'nebula', nkind: kind, pos, radius, seed, name: nebulaName(r, kind), hue: r(), temp: r.range(7000, 40000), cx, cy, cz, i, density: r.range(0.5, 1.3) });
+    const q = qfromEuler(r() * TAU, r() * TAU, r() * TAU); const rows = [qrot(q, [1, 0, 0]), qrot(q, [0, 1, 0]), qrot(q, [0, 0, 1])];
+    const ax = ckind === 'cloud' ? [r.range(0.5, 1), r.range(0.45, 1), r.range(0.35, 0.9)] : [r.range(0.75, 1), r.range(0.75, 1), r.range(0.7, 1)];
+    out.push({ id: `${g.id}/n:${cx}:${cy}:${cz}:${i}`, kind: 'nebula', nkind, ckind, pos, radius, seed, name: nebulaName(r, nkind), hue: r(), temp: r.range(7000, 40000), cx, cy, cz, i, density: r.range(0.55, 1.3), emit, dust, refl, ax, rows });
   }
   if (nebCache.size > 4000) nebCache.clear();
   nebCache.set(key, out); return out;
@@ -134,8 +138,8 @@ export function nebulaeNear(g, p, radiusPc) {
 export function nebulaById(g, id) { const m = id.match(/n:(-?\d+):(-?\d+):(-?\d+):(\d+)$/); return nebulaeInCell(g, +m[1], +m[2], +m[3])[+m[4]]; }
 function nebulaStars(g, neb) {
   if (neb._stars) return neb._stars; const r = makeRng('nebstars', neb.seed); const out = [];
-  if (neb.nkind === 'dark' || neb.nkind === 'planetary' || neb.nkind === 'snr') { neb._stars = out; return out; }
-  const n = neb.nkind === 'emission' ? 40 : 14;
+  if (neb.ckind !== 'cloud' || neb.emit < 0.25) { neb._stars = out; return out; }
+  const n = Math.round(6 + neb.emit * 40);
   for (let i = 0; i < n; i++) { const q = neb.radius * 0.5; out.push([neb.pos[0] + r.gauss() * q * 0.5, neb.pos[1] + r.gauss() * q * 0.35, neb.pos[2] + r.gauss() * q * 0.5, 1]); }
   neb._stars = out; return out;
 }
@@ -174,4 +178,24 @@ export function starsNear(g, p, radiusPc) {
   const k = Math.ceil(radiusPc / STAR_CELL); const cx = Math.floor(p[0] / STAR_CELL), cy = Math.floor(p[1] / STAR_CELL), cz = Math.floor(p[2] / STAR_CELL); const out = [];
   for (let z = -k; z <= k; z++) for (let y = -k; y <= k; y++) for (let x = -k; x <= k; x++) for (const s of starCell(g, cx + x, cy + y, cz + z)) out.push(s);
   return out;
+}
+
+// ---- ambient star tiers: unselectable but physically placed point stars that make the sky seamless between the local cells and the far particle cloud.
+export const TIERS = [
+  { cell: 240, radius: 3, lmin: 6, n0: 80, near: [130, 175], far: [560, 720] },
+  { cell: 960, radius: 3, lmin: 250, n0: 110, near: [650, 850], far: [2300, 2900] },
+];
+const STAR_PAL = (() => { const out = []; for (const T of [3300, 3800, 4300, 4900, 5600, 6300, 7200, 8500, 10500, 13000, 17000, 24000]) out.push(blackbody(T)); return out; })();
+export function ambientStars(g, tier, cx, cy, cz, out, origin) {
+  const T = TIERS[tier]; const r = makeRng('amb', g.seed, tier, cx, cy, cz); const c = T.cell;
+  const o = [cx * c, cy * c, cz * c];
+  const dens = galaxyDensity(g, o[0] + c / 2, o[1] + c / 2, o[2] + c / 2); if (dens <= 0.002) return;
+  const n = Math.min(Math.round(dens * T.n0 * (1 + 0.25 * r.gauss())), 170);
+  for (let i = 0; i < n; i++) {
+    const x = o[0] + r() * c, y = o[1] + r() * c, z = o[2] + r() * c;
+    const L = Math.min(T.lmin * Math.pow(r() + 1e-4, -1 / 0.75), 2e5);
+    let k; const u = r(); if (L > 1500) k = u < 0.5 ? 1 + Math.floor(r() * 3) : 9 + Math.floor(r() * 3); else if (L > 60) k = u < 0.4 ? 3 + Math.floor(r() * 3) : 5 + Math.floor(r() * 5); else k = u < 0.55 ? Math.floor(r() * 5) : 4 + Math.floor(r() * 5);
+    const col = STAR_PAL[k];
+    out.push(x - origin[0], y - origin[1], z - origin[2], col[0], col[1], col[2], L, 0);
+  }
 }

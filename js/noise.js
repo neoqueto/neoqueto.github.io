@@ -52,3 +52,33 @@ export function craters(x, y, z, seed, density) {
   }
   return h;
 }
+
+// Cellular noise: returns [F1, F2] (distances in cell units) for the 3x3x3 neighbourhood.
+const _cel = [0, 0];
+export function cellular(x, y, z, seed = 0) {
+  const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z); let f1 = 9, f2 = 9;
+  for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const cx = ix + dx, cy = iy + dy, cz = iz + dz; const h = ihash(cx, cy, cz, seed + 91);
+    const px = cx + (h & 255) / 255, py = cy + ((h >>> 8) & 255) / 255, pz = cz + ((h >>> 16) & 255) / 255;
+    const d = Math.hypot(x - px, y - py, z - pz);
+    if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
+  }
+  _cel[0] = f1; _cel[1] = f2; return _cel;
+}
+// Volcanoes: cones and shields with calderas on a jittered grid. Returns height in "height units" (0..1);
+// volcanoes.cal is set to 1 where the point lies inside a caldera.
+export function volcanoes(x, y, z, seed, density) {
+  const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z); let h = 0; volcanoes.cal = 0;
+  for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const cx = ix + dx, cy = iy + dy, cz = iz + dz; const hh = ihash(cx, cy, cz, seed + 311);
+    if ((hh & 1023) / 1023 > density) continue;
+    const px = cx + ((hh >>> 10) & 255) / 255, py = cy + ((hh >>> 18) & 255) / 255, pz = cz + (ihash(cx, cy, cz, seed + 313) & 255) / 255;
+    const r = 0.2 + 0.28 * (((hh >>> 4) & 63) / 63); const d = Math.hypot(x - px, y - py, z - pz) / r; if (d >= 1) continue;
+    const shield = (hh >>> 30) & 1;
+    let v = shield ? (1 - d * d) * 0.55 : Math.pow(1 - d, 1.35);
+    const cr = shield ? 0.12 : 0.15;
+    if (d < cr) { const dip = 1 - d / cr; v -= dip * (shield ? 0.12 : 0.3); if (dip > 0.15) volcanoes.cal = 1; }
+    if (v > h) h = v;
+  }
+  return h;
+}

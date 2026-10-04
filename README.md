@@ -21,7 +21,8 @@ high-end phones; the render scale adapts automatically to hold the frame rate.
 | Cosmic web (Mpc) | instanced WGSL galaxy sprites + far-field dust | filaments, voids, galaxy clusters; every galaxy is a perspective-correct thin disc / ellipsoid raytraced from its own orientation |
 | Galaxy (kpc–pc) | ~170k-particle cloud, dust lanes, streamed star cells, ray-marched nebulae | spirals (2–6 arms, bars, rings), ellipticals, lenticulars, irregulars, dwarfs, AGN jets, supermassive black hole |
 | Star system (AU–km) | WGSL planets/stars, cube-sphere LOD terrain | single / binary / triple stars, BH + star, neutron star + star, pulsars, planets, moons, tiny irregular moons, rings, belts |
-| Surface | worker-generated chunks, 33×33 quadtree LOD to ~6 m spacing | multi-octave detail + bump mapping, oceans, ice caps, craters, lava fields, atmospheres |
+| Surface | worker-generated chunks, 33×33 quadtree LOD to ~5 m spacing | tectonic ranges, rivers (incl. lava), lakes, ravines/canyons, volcanoes, multi-scale craters, oceans, ice caps; analytic (non-aliasing) bump detail; volumetric cloud decks |
+| Gas giants | ray-marched volume | dive through stacked 3-D cloud decks into dense, dark, hot gas down to the metallic-hydrogen ocean (HUD shows depth and pressure) |
 
 ## Navigation
 

@@ -73,7 +73,7 @@ export class World {
   }
   surfaceRadiusAt(b, relWorld) { // radius of the surface of body b below position relWorld (metres)
     if (b.kind === 'star') return b.radius;
-    if (b.cls === 'gas') return b.radius * 0.995;
+    if (b.cls === 'gas') return b.radius * (b.coreFrac || 0.68) + 800; // metallic-hydrogen ocean
     const Q = spinQuat(b, this.t); const l = qrot(qconj(Q), relWorld); const L = Math.hypot(l[0], l[1], l[2]) || 1; const T = b.visual.T;
     let dx = l[0] / L, dy = l[1] / L, dz = l[2] / L; if (T.axes) { dx /= T.axes[0]; dy /= T.axes[1]; dz /= T.axes[2]; const n = Math.hypot(dx, dy, dz); dx /= n; dy /= n; dz /= n; }
     const h = terrainHeight(T, dx, dy, dz); return T.radius * (T.axes ? (T.axes[0] + T.axes[1] + T.axes[2]) / 3 : 1) + Math.max(h, T.seaLevel);
@@ -103,6 +103,12 @@ export class World {
     if (sE && v3.len(this.camIn(sE)) < sE.extent * 3) root = sE; else if (gE && v3.len(this.camIn(gE)) < gE.radius * 2.8) root = gE;
     this.reanchor(root); this.mode = 'free'; this.travel = null; this.q = keepQ; this.vel = [0, 0, 0];
   }
+  landingFree() { // switch from a look-at-centre orbit to a free camera hovering over the surface, upright, tilted slightly towards the ground
+    if (!this.surface) return; this.mode = 'free'; this.travel = null; this.vel = [0, 0, 0];
+    const up = v3.norm(this.rel); const f = qrot(this.q, [0, 0, -1]); let h = v3.sub(f, v3.scale(up, v3.dot(f, up)));
+    if (v3.len(h) < 0.2) { const r = qrot(this.q, [1, 0, 0]); h = v3.cross(up, r); if (v3.len(h) < 0.2) h = v3.cross(up, [0, 1, 0]); }
+    h = v3.norm(h); const fwd = v3.norm(v3.add(v3.scale(h, 0.94), v3.scale(up, -0.34))); this.q = lookQuat(fwd, up);
+  }
   releaseSurface() { if (this.surface) { const Q = spinQuat(this.surface, this.t); this.q = qmul(Q, this.q); this.rel = qrot(Q, this.rel); this.surface = null; } }
   attachSurface(b) { if (this.surface === b) return; this.releaseSurface(); const Q = spinQuat(b, this.t), Qi = qconj(Q); this.rel = qrot(Qi, this.rel); this.q = qmul(Qi, this.q); this.vel = qrot(Qi, this.vel); this.surface = b; }
   // world-frame helpers when attached to a spinning body
@@ -128,10 +134,10 @@ export class World {
       q = qmul(qfromAxisAngle(u, -yaw), q); q = qmul(qfromAxisAngle(r, -pitch), q); q = qmul(qfromAxisAngle(f, roll), q);
       const l = Math.hypot(...q); this.q = q.map((x) => x / l);
     }
-    // level horizon when near a surface
-    if (this.surface && this.altitude < this.surface.radius * 0.6 && !inp.rolling) {
-      const up = v3.norm(this.rel); const r = qrot(this.q, [1, 0, 0]); const cur = v3.dot(r, up); const f = qrot(this.q, [0, 0, -1]);
-      this.q = qmul(qfromAxisAngle(f, clamp(-Math.asin(clamp(cur, -1, 1)), -1, 1) * (1 - Math.exp(-dt * 1.5))), this.q);
+    // keep the horizon level (always upright) when close to a surface: build the orientation from the forward vector and the local radial "up"
+    if (this.surface && this.altitude < this.surface.radius * 0.8 && !inp.rolling && this.autoLevel !== false) {
+      const up = v3.norm(this.rel); const f = qrot(this.q, [0, 0, -1]);
+      if (Math.abs(v3.dot(f, up)) < 0.997) this.q = qslerp(this.q, lookQuat(f, up), 1 - Math.exp(-dt * 3.2));
     }
     // translation: speed from distance to nearest surface
     const near = Math.max(this.nearestDist, 1);
@@ -218,6 +224,7 @@ export class World {
   }
   attachTo(b) { if (this.surface === b) return; this.releaseSurface(); this.reanchor(b); this.attachSurface(b); }
   detachSurface() { if (!this.surface) return; const b = this.surface; this.releaseSurface(); const sE = systemOf(b); if (sE) this.reanchor(sE); }
+  altitudeToTops(b, camSys) { const bp = bodyPos(b, this.t); return Math.hypot(camSys[0] - bp[0], camSys[1] - bp[1], camSys[2] - bp[2]) - b.radius; }
   collideWith(b, camSys) { // push camera out of body b; returns altitude above surface (m)
     const bp = bodyPos(b, this.t); const rel = [camSys[0] - bp[0], camSys[1] - bp[1], camSys[2] - bp[2]]; const L = v3.len(rel) || 1;
     const sr = this.surfaceRadiusAt(b, rel); const margin = b.kind === 'star' ? b.radius * 0.03 : 1.2;

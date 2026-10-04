@@ -80,7 +80,7 @@ fn rockyFrag(
 
   if (biome == 0 || biome == 1) { // terran / ocean
     var land = mix(cLow, cMid, sstep(0.25, 0.7, moist + 0.25 * patchN));
-    let band = exp(-pow((alat - 0.32) / 0.2, 2.0));
+    let band = exp(-sq((alat - 0.32) / 0.2));
     land = mix(land, cDry, clamp(band * sstep(0.35, 0.7, 1.0 - moist) * 1.4, 0.0, 1.0));
     land = mix(land, cHigh, sstep(0.22, 0.55, hN + 0.1 * (patchN - 0.5)));
     land = mix(land, cHigh * 0.85, sstep(0.1, 0.32, slope));
