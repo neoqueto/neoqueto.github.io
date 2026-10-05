@@ -41,7 +41,7 @@ class Node {
   build(c) {
     const g = new THREE.BufferGeometry(); const S = 0.001;
     for (let i = 0; i < c.pos.length; i++) c.pos[i] *= S;
-    g.setAttribute('position', new THREE.BufferAttribute(c.pos, 3)); g.setAttribute('nrm', new THREE.BufferAttribute(c.nrm, 3)); g.setAttribute('dir', new THREE.BufferAttribute(c.dir, 3)); g.setAttribute('elev', new THREE.BufferAttribute(c.elev, 1));
+    g.setAttribute('position', new THREE.BufferAttribute(c.pos, 3)); g.setAttribute('nrm', new THREE.BufferAttribute(c.nrm, 3)); g.setAttribute('dir', new THREE.BufferAttribute(c.dir, 3)); g.setAttribute('aux', new THREE.BufferAttribute(c.aux, 3));
     if (!sharedIndex) sharedIndex = new THREE.BufferAttribute(chunkIndices(), 1); g.setIndex(sharedIndex);
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), this.edge * 0.0011 + 20); 
     const m = new THREE.Mesh(g, this.lod.material); m.frustumCulled = true; m.visible = false; m.matrixAutoUpdate = false;

@@ -129,7 +129,7 @@ export class UI {
       $('crumbs').innerHTML = parts.map((p, i) => (i === parts.length - 1 ? `<b>${esc(p)}</b>` : `<span>${esc(p)}</span><i>›</i>`)).join('');
     }
     if (((this._sT = (this._sT || 0) + dt) > 0.1)) { this._sT = 0;
-    $('speed').textContent = (W.mode === 'travel' ? '⇢ ' : '') + fmtSpeed(W.speed || 0) + (info.nearest ? ' · ' + fmtDist(info.nearest) + (W.altitude < 1e30 && W.surface ? ' alt' : '') : ''); }
+    $('speed').textContent = (W.mode === 'travel' ? '⇢ ' : '') + fmtSpeed(W.speed || 0) + (info.nearest ? ' · ' + fmtDist(info.nearest) + (W.altitude < 1e30 && W.surface ? ' alt' : '') : '') + (info.depth ? ' · depth ' + Math.round(info.depth.km).toLocaleString('en-US') + ' km · ' + (info.depth.log10bar < 5 ? Math.pow(10, info.depth.log10bar).toFixed(info.depth.log10bar < 2 ? 0 : 0) : '10^' + info.depth.log10bar.toFixed(1)) + ' bar · core +' + Math.round(info.depth.core).toLocaleString('en-US') + ' km' : ''); }
     const mb = $('a-mode'); mb.textContent = W.mode === 'orbit' ? '◎' : W.mode === 'travel' ? '⇢' : '✈'; mb.classList.toggle('on', W.mode === 'orbit');
     // date
     if ((this.infoT += dt) > 0.25) {

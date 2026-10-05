@@ -2,7 +2,8 @@
 const K_FAV = 'cosmos.favorites.v1', K_SES = 'cosmos.session.v1', K_SET = 'cosmos.settings.v1';
 function read(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
 function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } }
-export const DEFAULT_SETTINGS = { quality: 'high', bloom: true, orbits: true, labels: true, fov: 65, sens: 1, invertY: false, autoLevel: true, showFps: false, grain: false, volumetrics: true };
+const FINE = (() => { try { return matchMedia('(pointer:fine)').matches; } catch { return false; } })();
+export const DEFAULT_SETTINGS = { quality: FINE ? 'ultra' : 'high', bloom: true, orbits: true, labels: true, fov: 65, sens: 1, invertY: false, autoLevel: true, showFps: false, grain: false, volumetrics: true };
 export const store = {
   favorites: read(K_FAV, []),
   settings: { ...DEFAULT_SETTINGS, ...read(K_SET, {}) },

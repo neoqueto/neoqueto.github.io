@@ -59,6 +59,7 @@ fn raySphere(ro: vec3<f32>, rd: vec3<f32>, r: f32) -> vec2<f32> {
 }
 fn rayleighPhase(mu: f32) -> f32 { return 3.0 / (16.0 * PI) * (1.0 + mu * mu); }
 fn hgPhase(mu: f32, g: f32) -> f32 { let g2 = g * g; return (1.0 - g2) / (4.0 * PI * pow(1.0 + g2 - 2.0 * g * mu, 1.5)); }
+fn sq(x: f32) -> f32 { return x * x; }
 fn sstep(e0: f32, e1: f32, x: f32) -> f32 {
   var d = e1 - e0; if (abs(d) < 1e-9) { d = 1e-9; }
   let t = clamp((x - e0) / d, 0.0, 1.0); return t * t * (3.0 - 2.0 * t);

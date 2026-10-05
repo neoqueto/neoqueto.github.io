@@ -210,11 +210,13 @@ async function boot() {
       sysView.update({ t, cam: ctx.camS, focal: focalPx, screenMin: Math.min(W, H), selected: ui.sel && ui.sel.kind !== 'system' ? ui.sel : null });
       E = sysView.E || 0; nearM = sysView.nearest; const nb = sysView.nearestBody;
       // altitude over terrain & collisions
-      if (nb && nb.kind !== 'belt') { const alt = world.collideWith(nb, ctx.camS); nearM = Math.max(alt, 0.2); world.altitude = alt;
+      if (nb && nb.kind !== 'belt') { const alt = world.collideWith(nb, ctx.camS); nearM = Math.max(alt, 0.2); world.altitude = alt; world.depth = null;
+        if (nb.cls === 'gas') { const top = world.altitudeToTops(nb, ctx.camS); if (top < 0) { const d = -top, Hp = nb.radius * 3.8e-4; nearM = Math.max(Math.min(nb.radius * 0.004 + 0.12 * d, alt), 0.5); world.depth = { km: d / 1000, log10bar: d / (Hp * Math.LN10), core: alt / 1000 }; } else nearM = Math.max(top, 0.5); }
         if (S.autoLevel !== false && world.mode !== 'travel') {
-          if (!world.surface && nb.cls === 'rocky' && alt < nb.radius * 0.7 && world.mode === 'free') world.attachTo(nb);
-          else if (!world.surface && nb.cls === 'rocky' && world.mode === 'orbit' && world.anchor === nb && alt < nb.radius * 0.5) world.attachSurface(nb);
-          else if (world.surface && alt > world.surface.radius * 2.2) { world.detachSurface(); }
+          const ra = nb.cls === 'gas' ? world.altitudeToTops(nb, ctx.camS) : alt;
+          if (!world.surface && nb.kind !== 'star' && ra < nb.radius * 0.7 && world.mode === 'free') world.attachTo(nb);
+          else if (!world.surface && nb.cls === 'rocky' && world.mode === 'orbit' && world.anchor === nb && alt < nb.radius * 0.5) { world.attachSurface(nb); world.landingFree(); ui.toast('Surface mode — drag to look, joystick to fly'); }
+          else if (world.surface && world.surface === nb && (nb.cls === 'gas' ? world.altitudeToTops(nb, ctx.camS) : alt) > nb.radius * 2.2) { world.detachSurface(); }
         }
       }
       layers.push({ scene: sysView.scene, near: clamp(nearM / 1000 * 0.04, 2e-5, 1e5), far: 1e13 });
@@ -231,7 +233,7 @@ async function boot() {
     engine.render(layers, qCam, lens);
     // ---- UI ----
     if (S.labels || true) updateLabels(dt, qCam);
-    ui.update(dt, { crumbsKey: world.anchor.id + '|' + (ctx.sysActive ? 1 : 0), nearest: nearM < 1e29 ? nearM : 0 });
+    ui.update(dt, { depth: world.depth, crumbsKey: world.anchor.id + '|' + (ctx.sysActive ? 1 : 0), nearest: nearM < 1e29 ? nearM : 0 });
     // fps / adaptive resolution
     fAcc += dt; fN++; fpsT += dt; if (fpsT > 1) { const fps = fN / fAcc; if (S.showFps) $('fps').textContent = fps.toFixed(0) + ' fps · ' + engine.size[0] + '×' + engine.size[1] + ' · ' + (sysView.sys ? 'sys' : '') + (S.quality); fAcc = 0; fN = 0; fpsT = 0;
       if (S.quality !== 'ultra') { if (fps < 28) { lowT++; hiT = 0; } else if (fps > 52) { hiT++; lowT = 0; } else { lowT = 0; hiT = 0; } if (lowT >= 2 && engine.scale > 0.5) { engine.setScale(Math.max(0.5, engine.scale * 0.88)); G.res.value.set(engine.size[0], engine.size[1]); lowT = 0; } if (hiT >= 6 && engine.scale < baseScale) { engine.setScale(Math.min(baseScale, engine.scale * 1.08)); G.res.value.set(engine.size[0], engine.size[1]); hiT = 0; } } }

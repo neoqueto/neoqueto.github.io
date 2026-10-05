@@ -7,7 +7,7 @@ import { bodyPos } from './gen/system.js';
 const f2 = (x, d = 2) => (+x).toFixed(d);
 const pct = (x) => (x * 100).toFixed(0) + '%';
 const KELV = (T) => Math.round(T).toLocaleString('en-US') + ' K (' + Math.round(T - 273.15).toLocaleString('en-US') + ' °C)';
-const NEB_NAMES = { emission: 'Emission nebula (H II region)', reflection: 'Reflection nebula', dark: 'Dark absorption nebula', planetary: 'Planetary nebula', snr: 'Supernova remnant' };
+const NEB_NAMES_X = {}; const NEB_NAMES = { emission: 'Emission nebula (H II region)', reflection: 'Reflection nebula', dark: 'Dark absorption nebula', planetary: 'Planetary nebula', snr: 'Supernova remnant' };
 const STAR_COLOR_NAME = (T) => (T > 30000 ? 'blue' : T > 10000 ? 'blue-white' : T > 7500 ? 'white' : T > 6000 ? 'yellow-white' : T > 5200 ? 'yellow' : T > 3700 ? 'orange' : T > 2300 ? 'red' : 'infrared-dim');
 
 export function colorFor(e) {
@@ -66,7 +66,7 @@ export function statsFor(e, world) {
       const hot = b.Tsurf || b.Teq;
       sec('Climate & atmosphere', [['Equilibrium temperature', KELV(b.Teq)], ['Surface temperature', KELV(hot)], ['Atmosphere', b.atmName], b.pressure > 0.0005 && b.cls !== 'gas' ? ['Surface pressure', f2(b.pressure, b.pressure < 1 ? 3 : 1) + ' bar'] : null, b.visual && b.visual.clouds && b.visual.clouds.cover > 0.05 ? ['Cloud cover', pct(b.visual.clouds.cover)] : null, b.visual && b.visual.ocean && b.visual.type !== 'tholin' ? ['Liquid water', 'Surface oceans'] : null, b.hasLife ? ['Biosphere', 'Vegetation detected'] : null]);
       const rows = []; if (b.visual && b.visual.T && b.cls === 'rocky') { const T = b.visual.T; rows.push(['Relief (max)', fmtDist((T.contAmp || 0) * 0.6 + (T.mountAmp || 0) + (T.craterAmp || 0) * 0.5)]); if (T.irregular) rows.push(['Shape', 'Irregular (' + b.visual.T.axes.map((x) => x.toFixed(2)).join(' × ') + ')']); }
-      if (b.cls === 'gas') { rows.push(['Composition', 'H₂ / He envelope']); rows.push(['Cloud bands', b.visual.bands]); rows.push(['Storm systems', (b.visual.storm ? 1 : 0) + b.visual.vortices]); }
+      if (b.cls === 'gas') { rows.push(['Composition', 'H₂ / He envelope']); rows.push(['Metallic-hydrogen ocean at', fmtRadius(b.radius * b.coreFrac) + ' radius']); rows.push(['Dive depth to ocean', fmtDist(b.radius * (1 - b.coreFrac))]); rows.push(['Cloud bands', b.visual.bands]); rows.push(['Storm systems', (b.visual.storm ? 1 : 0) + b.visual.vortices]); }
       if (b.ring) { rows.push(['Ring system', f2(b.ring.inner, 2) + '–' + f2(b.ring.outer, 2) + ' R (' + fmtDist(b.ring.outer * b.radius) + ')']); rows.push(['Ring gaps', b.ring.gaps]); }
       if (b.moons) rows.push(['Moons', b.moons.length]);
       sec('Features', rows);
